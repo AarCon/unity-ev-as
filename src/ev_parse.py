@@ -1,6 +1,7 @@
 import os
 import struct
 import json
+import yaml
 from argparse import ArgumentParser
 
 import UnityPy
@@ -17,6 +18,16 @@ def decode_int(var):
     var = int(var)
     data = float(struct.unpack('!f', struct.pack('!I', var & 0xFFFFFFFF))[0])
     return data
+
+def decode_unity_yaml(sourceFile):
+    result = str()
+    for lineNumber,line in enumerate( sourceFile.readlines() ): 
+        if line.startswith('--- !u!'):          
+            result += '--- ' + line.split(' ')[2] + '\n'   # removes the unnecessary tag, but keep file ID
+        else:
+            # Just copy the contents...
+            result += line
+    return result
 
 def parse_ev_script(tree, custom_commands, name=None):
     if "Scripts" not in tree:
@@ -108,7 +119,7 @@ def write_ev_script(ofdir, name, compiledScripts):
         data = "\n".join(lines)
         ofobj.write(data)
 
-def parse_ev_scripts(ifdir, ofdir):
+def parse_ev_scripts(ifdir, ofdir, mode):
     commands = {}
     if os.path.exists("commands.json"):
         print("Loading external commands reference from commands.json")
@@ -121,28 +132,50 @@ def parse_ev_scripts(ifdir, ofdir):
                     print("Unable to load commands.json, missing either Id or Name key. Defaulting to known commands")
 
 
-    with open(ifdir, "rb") as ifobj:
-        bundle = UnityPy.load(ifdir)
+    if mode == "bundle":
+        with open(ifdir, "rb") as ifobj:
 
-        for obj in bundle.objects:
-            if obj.type.name == "MonoBehaviour":
+            bundle = UnityPy.load(ifdir)
+
+            for obj in bundle.objects:
+                if obj.type.name == "MonoBehaviour":
+                    try:
+                        data = obj.read()
+                        if obj.serialized_type.nodes:
+                            tree = obj.read_typetree()
+                            compiledScripts = parse_ev_script(tree, commands, name=data.name)
+                            write_ev_script(ofdir, data.name, compiledScripts)
+                    except Exception as exc:
+                        print(exc)
+                        print("Failed to unpack: {}".format(obj))
+    elif mode == "yaml":
+        print("Running in YAML mode")
+        for filename in os.listdir(ifdir):
+            file_path = os.path.join(ifdir, filename)
+            if not file_path.endswith(".asset"):
+                # NO meta here
+                continue
+            with open(file_path, 'r') as ifobj:
                 try:
-                    data = obj.read()
-                    if obj.serialized_type.nodes:
-                        tree = obj.read_typetree()
-                        compiledScripts = parse_ev_script(tree, commands, name=data.name)
-                        write_ev_script(ofdir, data.name, compiledScripts)
+                    decoded_yaml = decode_unity_yaml(ifobj)
+                    bundle = yaml.safe_load(decoded_yaml)
+                    tree = bundle["MonoBehaviour"]
+                    compiledScripts = parse_ev_script(tree, commands)
+                    write_ev_script(ofdir, tree["m_Name"], compiledScripts)
                 except Exception as exc:
-                    print(exc)
-                    print("Failed to unpack: {}".format(obj))
+                        print(exc)
+                        print("Failed to unpack: {}".format(file_path))
+    else:
+        raise ValueError(f"'{mode}' is an Invalid mode. Must be 'yaml' or 'bundle'.")
 
 def main():
     parser = ArgumentParser()
     parser.add_argument("-i", "--input", dest='ifpath', action='store', default="Dpr/ev_script")
     parser.add_argument("-o", "--output", dest='ofdir', action='store', default="parsed")
+    parser.add_argument("-m", "--mode", dest='mode', action='store', default="bundle") # yaml is the other option
     
     vargs = parser.parse_args()
-    parse_ev_scripts(vargs.ifpath, vargs.ofdir)
+    parse_ev_scripts(vargs.ifpath, vargs.ofdir, vargs.mode)
 
 if __name__ == "__main__":
     main()

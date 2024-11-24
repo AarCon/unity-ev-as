@@ -140,3 +140,6 @@ dmypy.json
 build*
 
 test
+
+# Unity Assets
+Assets/*
