@@ -3,54 +3,74 @@ from marshmallow_dataclass import dataclass
 from typing import List, Optional
 
 class WordDataPatternID(IntEnum):
-	Str = 0
-	FontTag = 1
-	ColorTag = 2
-	SizeTag = 3
-	CtrlTag = 4
-	WordTag = 5
-	SpriteFont = 6
-	Event = 7
+    @classmethod
+    def to_yaml(cls, dumper, data):
+        return dumper.represent_scalar('tag:yaml.org,2002:int', str(int(data)))
+
+    Str = 0
+    FontTag = 1
+    ColorTag = 2
+    SizeTag = 3
+    CtrlTag = 4
+    WordTag = 5
+    SpriteFont = 6
+    Event = 7
 
 class MsgEventID(IntEnum):
-	NONE = 0
-	NewLine = 1
-	Wait = 2
-	ScrollPage = 3
-	ScrollLine = 4
-	CallBack = 5
-	GuidIcon = 6
-	End = 7
+    @classmethod
+    def to_yaml(cls, dumper, data):
+        return dumper.represent_scalar('tag:yaml.org,2002:int', str(int(data)))
+
+    NONE = 0
+    NewLine = 1
+    Wait = 2
+    ScrollPage = 3
+    ScrollLine = 4
+    CallBack = 5
+    GuidIcon = 6
+    End = 7
 
 class GroupTagID(IntEnum):
-	System = 0
-	Name = 1
-	Digit = 2
-	Grm = 16
-	EN = 19
-	FR = 20
-	IT = 21
-	DE = 22
-	ES = 23
-	Kor = 25
-	SC = 26
-	Character1 = 50
-	Character2 = 51
-	Ctrl1 = 189
-	Ctrl2 = 190
+    @classmethod
+    def to_yaml(cls, dumper, data):
+        return dumper.represent_scalar('tag:yaml.org,2002:int', str(int(data)))
+
+    System = 0
+    Name = 1
+    Digit = 2
+    Grm = 16
+    EN = 19
+    FR = 20
+    IT = 21
+    DE = 22
+    ES = 23
+    Kor = 25
+    SC = 26
+    Character1 = 50
+    Character2 = 51
+    Ctrl1 = 189
+    Ctrl2 = 190
 
 class TagPatternID(IntEnum):
-	Word = 0
-	Digit = 1
-	Conversion = 2
-	RichText = 3
-	Grammar = 4
-	GrammarWord = 5
-	ControlDesign = 6
-	ControlMessage = 7
-	SpriteFont = 8
+    @classmethod
+    def to_yaml(cls, dumper, data):
+        return dumper.represent_scalar('tag:yaml.org,2002:int', str(int(data)))
+
+    Word = 0
+    Digit = 1
+    Conversion = 2
+    RichText = 3
+    Grammar = 4
+    GrammarWord = 5
+    ControlDesign = 6
+    ControlMessage = 7
+    SpriteFont = 8
 
 class ForceGrmID(IntEnum):
+    @classmethod
+    def to_yaml(cls, dumper, data):
+        return dumper.represent_scalar('tag:yaml.org,2002:int', str(int(data)))
+
     NONE = 0
     Singular = 1
     Plural = 2
@@ -58,6 +78,10 @@ class ForceGrmID(IntEnum):
     InitialCap = 4
 
 class TagID(IntEnum):
+    @classmethod
+    def to_yaml(cls, dumper, data):
+        return dumper.represent_scalar('tag:yaml.org,2002:int', str(int(data)))
+
     Default = 0
     PokeType = 3
     Number = 4

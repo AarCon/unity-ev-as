@@ -1,6 +1,9 @@
 from enum import IntEnum, auto
-
 class EvArgType(IntEnum):
+    @classmethod
+    def to_yaml(cls, dumper, data):
+        return dumper.represent_scalar('tag:yaml.org,2002:int', str(int(data)))
+
     CmdType = 0
     Value = 1
     Work = 2

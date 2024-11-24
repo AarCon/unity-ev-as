@@ -3,6 +3,8 @@ import os
 import struct
 import json
 import glob
+import yaml
+import sys
 from argparse import ArgumentParser
 
 import UnityPy
@@ -15,10 +17,15 @@ from evLexer import evLexer
 from evParser import evParser
 
 from ev_argtype import EvArgType
+from ev_work import EvWork
+from ev_sys_flag import EvSysFlag
+from ev_flag import EvFlag
 from ev_cmd import EvCmdType
+
 from function_definitions import FunctionDefinition
 from msbt import MsbtFile
 from validator import Validator
+from ev_parse import decode_unity_yaml
 
 def jsonDumpUnity(tree, ofpath):
     with open(ofpath, "w") as ofobj:
@@ -132,6 +139,61 @@ def updateLabelDatas(path, lang, labelDatas):
             msbt_file = msbt_files[data_file]
             json.dump(MsbtFile.Schema().dump(msbt_file), ofobj, indent=4, ensure_ascii=False)
 
+def updateYamlLabels(path, lang, labelDatas):
+    print("Updating message files using Macro information.")
+    msbt_files = {}
+    for data_file in DATA_FILES:
+        ifpath = os.path.join(path, f"{lang}_{data_file}.asset")
+        with open(ifpath, "r", encoding='utf-8') as ifobj:
+            try:
+                decoded_yaml = decode_unity_yaml(ifobj)
+                bundle = yaml.safe_load(decoded_yaml)
+                tree = bundle["MonoBehaviour"]
+            except marshmallow.exceptions.ValidationError as exc:
+                print("Failed to load: {}. Unable to update message files".format(ifpath))
+                print(exc)
+                return
+            msbt_files[data_file] = tree
+    for scriptMessage, labelData in labelDatas.items():
+        splitMsg = scriptMessage.split('%')
+        dataFile = splitMsg[0]
+        unlocalized_key = splitMsg[1]
+        msbt_file: MsbtFile = msbt_files[dataFile]
+        found_entry = False
+        for i, iLabelData in enumerate(msbt_file.labelDataArray):
+            if iLabelData.labelName == labelData.labelName:
+                labelData.labelIndex = iLabelData.labelIndex
+                labelData.arrayIndex = iLabelData.arrayIndex
+                msbt_file.labelDataArray[i] = labelData
+                found_entry = True
+                break
+        if found_entry:
+            continue
+        arrayIndex = msbt_file.labelDataArray[-1].arrayIndex + 1
+        labelData.labelIndex = arrayIndex
+        labelData.arrayIndex = arrayIndex
+        msbt_file.labelDataArray.append(labelData)
+
+    for data_file in DATA_FILES:
+        ifpath = os.path.join(path, f"{lang}_{data_file}.asset")
+        with open(ifpath, "r", encoding='utf-8') as ifobj:
+            try:
+                yaml_header = ifobj.readlines()[:3]
+                yaml_header_string = "".join(yaml_header)
+                ifobj.seek(0)
+                decoded_yaml = decode_unity_yaml(ifobj)
+                bundle = yaml.safe_load(decoded_yaml)
+            except TypeError as e:
+                print("Something wrong", ifpath, bundle.keys())
+                sys.exit()
+        with open(ifpath, "w", encoding='utf-8') as ofobj:
+            msbt_file = msbt_files[data_file]['labelDataArray']
+
+            bundle['MonoBehaviour']['labelDataArray'] = msbt_file
+            new_bundle = yaml.safe_dump(bundle, explicit_start=True, sort_keys=False)
+            final_bundle = yaml_header_string + new_bundle[4:]
+            ofobj.writelines(final_bundle)
+
 def assemble(ifpath, ofpath, script):
     input_stream = FileStream(ifpath)
     lexer = evLexer(input_stream)
@@ -201,7 +263,34 @@ def loadCoreLabels(ifpath, ignoreNames):
 
     return linkerLabels
 
-def assemble_all():
+def loadYamlCoreLabels(ifpath, ignoreNames):
+    linkerLabels = []
+    for filename in os.listdir(ifpath):
+        file_path = os.path.join(ifpath, filename)
+        if not file_path.endswith(".asset"):
+            # NO meta here
+            continue
+        with open(file_path, "r") as ifobj:
+            try:
+                decoded_yaml = decode_unity_yaml(ifobj)
+                bundle = yaml.safe_load(decoded_yaml)
+                tree = bundle["MonoBehaviour"]
+            except Exception as exc:
+                print(exc)
+                print("Failed to unpack: {}".format(file_path))
+
+            if tree["m_Name"] in ignoreNames:
+                continue
+            if "Scripts" not in tree:
+                continue
+            scripts = tree["Scripts"]
+            for script in scripts:
+                label = script["Label"]
+                linkerLabels.append(label)
+
+    return linkerLabels
+
+def assemble_all(ifdir, mode):
     scripts = {}
     labelDatas = {}
     flags = {}
@@ -246,22 +335,57 @@ def assemble_all():
         linkerLabels.extend(assembler.scripts.keys())
         labelDatas.update(assembler.macroAssembler.labelDatas)
         ignoreList.append(basename)
-    linkerLabels.extend(loadCoreLabels("Dpr/ev_script", ignoreList))
-    for toConvert in toConvertList:
-        unityTree = convertToUnity(toConvert[0], toConvert[1], toConvert[2], linkerLabels)
-        scripts[toConvert[3]] = unityTree
-    repackUnityAll("Dpr/ev_script", "bin/ev_script", scripts)
-    updateLabelDatas("AssetFolder/english_Export", "english", labelDatas)
+    if mode == "bundle":
+        linkerLabels.extend(loadCoreLabels("Dpr/ev_script", ignoreList))
+        for toConvert in toConvertList:
+            unityTree = convertToUnity(toConvert[0], toConvert[1], toConvert[2], linkerLabels)
+            scripts[toConvert[3]] = unityTree
+        repackUnityAll("Dpr/ev_script", "bin/ev_script", scripts)
+        updateLabelDatas("AssetFolder/english_Export", "english", labelDatas)
+    elif mode == "yaml":
+        # Do the yaml thing
+        yaml.SafeDumper.add_multi_representer(EvArgType, EvArgType.to_yaml)
+        yaml.SafeDumper.add_multi_representer(EvWork, EvWork.to_yaml)
+        yaml.SafeDumper.add_multi_representer(EvSysFlag, EvSysFlag.to_yaml)
+        yaml.SafeDumper.add_multi_representer(EvFlag, EvFlag.to_yaml)
+        yaml.SafeDumper.add_multi_representer(EvCmdType, EvCmdType.to_yaml)
+        print("Running in YAML mode")
+        linkerLabels.extend(loadYamlCoreLabels(ifdir, ignoreList))
+        for toConvert in toConvertList:
+            unityTree = convertToUnity(toConvert[0], toConvert[1], toConvert[2], linkerLabels)
+            scripts[toConvert[3]] = unityTree
+        for filename in os.listdir(ifdir):
+            file_path = os.path.join(ifdir, filename)
+            if not file_path.endswith(".asset"):
+                # NO meta here
+                continue
+            with open(file_path, 'r') as ifobj:
+                yaml_header = ifobj.readlines()[:3]
+                yaml_header_string = "".join(yaml_header)
+                ifobj.seek(0)
+                decoded_yaml = decode_unity_yaml(ifobj)
+                bundle = yaml.safe_load(decoded_yaml)
+
+            with open(file_path, 'w') as outputobj:
+                script_name = bundle['MonoBehaviour']['m_Name']
+                new_scripts = scripts[script_name]["Scripts"]
+                bundle['MonoBehaviour']['Scripts'] = new_scripts
+                new_bundle = yaml.safe_dump(bundle, explicit_start=True, sort_keys=False)
+                final_bundle = yaml_header_string + new_bundle[4:]
+                outputobj.writelines(final_bundle)
+        updateYamlLabels("Assets/format_msbt/en/english", "english", labelDatas)
+    else:
+        raise ValueError(f"'{mode}' is an Invalid mode. Must be 'yaml' or 'bundle'.")
 
 def main():
-    # parser = ArgumentParser()
-    # parser.add_argument("-i", "--input", dest='ifpath', action='store', required=True)
-    # parser.add_argument("-o", "--output", dest='ofpath', action='store', required=True)
+    parser = ArgumentParser()
+    parser.add_argument("-i", "--input", dest='ifpath', action='store', default="Dpr/ev_script")
+    parser.add_argument("-m", "--mode", dest='mode', action='store', default="bundle") # yaml is the other option
     # parser.add_argument("-s", "--script", dest='script', action='store', required=True)
 
-    # vargs = parser.parse_args()
+    vargs = parser.parse_args()
     # assemble(vargs.ifpath, vargs.ofpath, vargs.script)
-    assemble_all()
+    assemble_all(vargs.ifpath, vargs.mode)
     print("Assembly finished")
 
 if __name__ == "__main__":
