@@ -9,3 +9,4 @@ tabulate==0.8.9
 texture2ddecoder==1.0.2
 UnityPy==1.7.25
 PyYAML==6.0.2
+yamlcore==0.0.4

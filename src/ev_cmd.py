@@ -1,10 +1,6 @@
 from enum import IntEnum, auto
 
 class EvCmdType(IntEnum):
-    @classmethod
-    def to_yaml(cls, dumper, data):
-        return dumper.represent_scalar('tag:yaml.org,2002:int', str(int(data)))
-
     _NONE_USE_NUMBER = -1
     _NOP = 1
     _DUMMY = auto()

@@ -1,10 +1,6 @@
 from enum import IntEnum, auto
 
 class EvSysFlag(IntEnum):
-    @classmethod
-    def to_yaml(cls, dumper, data):
-        return dumper.represent_scalar('tag:yaml.org,2002:int', str(int(data)))
-
     SYS_FLAG_ARRIVE_START = 0
     SYS_FLAG_BAG_GET = auto()
     SYS_FLAG_PAIR = auto()

@@ -1,10 +1,6 @@
 from enum import IntEnum, auto
 
 class EvWork(IntEnum):
-    @classmethod
-    def to_yaml(cls, dumper, data):
-        return dumper.represent_scalar('tag:yaml.org,2002:int', str(int(data)))
-
     LOCALWORK0 = 0
     LOCALWORK1 = auto()
     LOCALWORK2 = auto()

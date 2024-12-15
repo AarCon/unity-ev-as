@@ -1,12 +1,9 @@
 from enum import IntEnum
 from marshmallow_dataclass import dataclass
 from typing import List, Optional
+from dataclasses import field
 
 class WordDataPatternID(IntEnum):
-    @classmethod
-    def to_yaml(cls, dumper, data):
-        return dumper.represent_scalar('tag:yaml.org,2002:int', str(int(data)))
-
     Str = 0
     FontTag = 1
     ColorTag = 2
@@ -17,10 +14,6 @@ class WordDataPatternID(IntEnum):
     Event = 7
 
 class MsgEventID(IntEnum):
-    @classmethod
-    def to_yaml(cls, dumper, data):
-        return dumper.represent_scalar('tag:yaml.org,2002:int', str(int(data)))
-
     NONE = 0
     NewLine = 1
     Wait = 2
@@ -31,10 +24,6 @@ class MsgEventID(IntEnum):
     End = 7
 
 class GroupTagID(IntEnum):
-    @classmethod
-    def to_yaml(cls, dumper, data):
-        return dumper.represent_scalar('tag:yaml.org,2002:int', str(int(data)))
-
     System = 0
     Name = 1
     Digit = 2
@@ -52,10 +41,6 @@ class GroupTagID(IntEnum):
     Ctrl2 = 190
 
 class TagPatternID(IntEnum):
-    @classmethod
-    def to_yaml(cls, dumper, data):
-        return dumper.represent_scalar('tag:yaml.org,2002:int', str(int(data)))
-
     Word = 0
     Digit = 1
     Conversion = 2
@@ -67,10 +52,6 @@ class TagPatternID(IntEnum):
     SpriteFont = 8
 
 class ForceGrmID(IntEnum):
-    @classmethod
-    def to_yaml(cls, dumper, data):
-        return dumper.represent_scalar('tag:yaml.org,2002:int', str(int(data)))
-
     NONE = 0
     Singular = 1
     Plural = 2
@@ -78,10 +59,6 @@ class ForceGrmID(IntEnum):
     InitialCap = 4
 
 class TagID(IntEnum):
-    @classmethod
-    def to_yaml(cls, dumper, data):
-        return dumper.represent_scalar('tag:yaml.org,2002:int', str(int(data)))
-
     Default = 0
     PokeType = 3
     Number = 4
@@ -136,11 +113,31 @@ class WordData:
     eventID: int # MessageEnumData.MsgEventID 
     tagIndex: int
     tagValue: float
-    str: str
+    str: str # type: ignore
     strWidth: float
 
     class Meta:
         ordered = True
+
+    def __post_init__(self):
+        # Ensure tagValue is a float except when it's zero
+        if self.tagValue == 0:
+            self.tagValue = 0  # Keep it as an integer zero
+        else:
+            self.tagValue = float(self.tagValue)  # Convert to float
+
+        # Ensure strWidth is a float except when it's zero or -1
+        if self.strWidth == 0:
+            self.strWidth = 0  # Keep it as an integer zero
+        elif self.strWidth == -1:
+            self.strWidth = -1
+        else:
+            self.strWidth = float(self.strWidth)  # Convert to float
+
+        if len(self.str) == 0:
+            self.str = None
+        else:
+            self.str = str(self.str)
 
 @dataclass
 class LabelData:

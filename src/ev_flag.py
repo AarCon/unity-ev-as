@@ -1,10 +1,6 @@
 from enum import IntEnum, auto
 
 class EvFlag(IntEnum):
-    @classmethod
-    def to_yaml(cls, dumper, data):
-        return dumper.represent_scalar('tag:yaml.org,2002:int', str(int(data)))
-
     FH_01 = 0
     FH_02 = auto()
     FH_03 = auto()

@@ -4,6 +4,8 @@ import struct
 import json
 import glob
 import yaml
+from yamlcore import CoreLoader
+from yamlcore import CoreDumper
 import sys
 from argparse import ArgumentParser
 
@@ -23,13 +25,35 @@ from ev_flag import EvFlag
 from ev_cmd import EvCmdType
 
 from function_definitions import FunctionDefinition
-from msbt import MsbtFile
+from msbt import (
+    MsbtFile,
+    LabelData,
+    LabelData,
+    WordData,
+    WordDataPatternID,
+    MsgEventID,
+    GroupTagID,
+    TagPatternID,
+    ForceGrmID,
+    TagID
+)
 from validator import Validator
 from ev_parse import decode_unity_yaml
+from dataclasses import asdict
 
 def jsonDumpUnity(tree, ofpath):
     with open(ofpath, "w") as ofobj:
         json.dump(tree, ofobj, indent=4)
+
+def int_enum_representer(dumper, data):
+    # Convert the enum to its integer value and represent as scalar
+    return dumper.represent_scalar('tag:yaml.org,2002:int', str(int(data)))
+
+def none_representer(dumper, data):
+    return dumper.represent_scalar('tag:yaml.org,2002:null', '')
+
+def dataclass_representer(dumper, data):
+    return dumper.represent_dict(data.to_yaml_dict())
 
 def convertToUnity(ifpath, scripts, strList, linkerLabels):
     # FunctionDefinition.load("ev_scripts.json")
@@ -147,7 +171,7 @@ def updateYamlLabels(path, lang, labelDatas):
         with open(ifpath, "r", encoding='utf-8') as ifobj:
             try:
                 decoded_yaml = decode_unity_yaml(ifobj)
-                bundle = yaml.safe_load(decoded_yaml)
+                bundle = yaml.load(decoded_yaml, Loader=CoreLoader)
                 tree = bundle["MonoBehaviour"]
             except marshmallow.exceptions.ValidationError as exc:
                 print("Failed to load: {}. Unable to update message files".format(ifpath))
@@ -160,19 +184,26 @@ def updateYamlLabels(path, lang, labelDatas):
         unlocalized_key = splitMsg[1]
         msbt_file: MsbtFile = msbt_files[dataFile]
         found_entry = False
-        for i, iLabelData in enumerate(msbt_file.labelDataArray):
-            if iLabelData.labelName == labelData.labelName:
-                labelData.labelIndex = iLabelData.labelIndex
-                labelData.arrayIndex = iLabelData.arrayIndex
-                msbt_file.labelDataArray[i] = labelData
+        for i, iLabelData in enumerate(msbt_file["labelDataArray"]):
+            ## PyYaml cannot unpack dataclasses or classes at all (at least not easily)
+            ## In order to get around this we need to convert everything to a dict
+            ## So this checks if it's a macro label (not a dict) and changes it into a dict
+            if not isinstance(iLabelData, dict):
+                iLabelData = asdict(iLabelData)
+            if not isinstance(labelData, dict):
+                labelData = asdict(labelData)
+            if iLabelData["labelName"] == labelData["labelName"]:
+                labelData["labelIndex"] = iLabelData["labelIndex"]
+                labelData["arrayIndex"] = iLabelData["arrayIndex"]
+                msbt_file["labelDataArray"][i] = labelData
                 found_entry = True
                 break
         if found_entry:
             continue
-        arrayIndex = msbt_file.labelDataArray[-1].arrayIndex + 1
-        labelData.labelIndex = arrayIndex
-        labelData.arrayIndex = arrayIndex
-        msbt_file.labelDataArray.append(labelData)
+        arrayIndex = msbt_file["labelDataArray"][-1]["arrayIndex"] + 1
+        labelData["labelIndex"] = arrayIndex
+        labelData["arrayIndex"] = arrayIndex
+        msbt_file["labelDataArray"].append(labelData)
 
     for data_file in DATA_FILES:
         ifpath = os.path.join(path, f"{lang}_{data_file}.asset")
@@ -182,7 +213,7 @@ def updateYamlLabels(path, lang, labelDatas):
                 yaml_header_string = "".join(yaml_header)
                 ifobj.seek(0)
                 decoded_yaml = decode_unity_yaml(ifobj)
-                bundle = yaml.safe_load(decoded_yaml)
+                bundle = yaml.load(decoded_yaml, Loader=CoreLoader)
             except TypeError as e:
                 print("Something wrong", ifpath, bundle.keys())
                 sys.exit()
@@ -190,7 +221,14 @@ def updateYamlLabels(path, lang, labelDatas):
             msbt_file = msbt_files[data_file]['labelDataArray']
 
             bundle['MonoBehaviour']['labelDataArray'] = msbt_file
-            new_bundle = yaml.safe_dump(bundle, explicit_start=True, sort_keys=False)
+            new_bundle = yaml.dump(
+                bundle,
+                Dumper=CoreDumper,
+                explicit_start=True,
+                sort_keys=False,
+                allow_unicode=True,
+                default_flow_style=False
+            )
             final_bundle = yaml_header_string + new_bundle[4:]
             ofobj.writelines(final_bundle)
 
@@ -273,7 +311,7 @@ def loadYamlCoreLabels(ifpath, ignoreNames):
         with open(file_path, "r") as ifobj:
             try:
                 decoded_yaml = decode_unity_yaml(ifobj)
-                bundle = yaml.safe_load(decoded_yaml)
+                bundle = yaml.load(decoded_yaml, Loader=CoreLoader)
                 tree = bundle["MonoBehaviour"]
             except Exception as exc:
                 print(exc)
@@ -344,11 +382,23 @@ def assemble_all(ifdir, mode):
         updateLabelDatas("AssetFolder/english_Export", "english", labelDatas)
     elif mode == "yaml":
         # Do the yaml thing
-        yaml.SafeDumper.add_multi_representer(EvArgType, EvArgType.to_yaml)
-        yaml.SafeDumper.add_multi_representer(EvWork, EvWork.to_yaml)
-        yaml.SafeDumper.add_multi_representer(EvSysFlag, EvSysFlag.to_yaml)
-        yaml.SafeDumper.add_multi_representer(EvFlag, EvFlag.to_yaml)
-        yaml.SafeDumper.add_multi_representer(EvCmdType, EvCmdType.to_yaml)
+        CoreDumper.add_multi_representer(EvArgType, int_enum_representer)
+        CoreDumper.add_multi_representer(EvWork, int_enum_representer)
+        CoreDumper.add_multi_representer(EvSysFlag, int_enum_representer)
+        CoreDumper.add_multi_representer(EvFlag, int_enum_representer)
+        CoreDumper.add_multi_representer(EvCmdType, int_enum_representer)
+        CoreDumper.add_multi_representer(WordDataPatternID, int_enum_representer)
+        CoreDumper.add_multi_representer(MsgEventID, int_enum_representer)
+        CoreDumper.add_multi_representer(GroupTagID, int_enum_representer)
+        CoreDumper.add_multi_representer(TagPatternID, int_enum_representer)
+        CoreDumper.add_multi_representer(ForceGrmID, int_enum_representer)
+        CoreDumper.add_multi_representer(TagID, int_enum_representer)
+        CoreDumper.add_representer(type(None), none_representer)
+        CoreDumper.add_multi_representer(LabelData, dataclass_representer)
+        CoreDumper.add_multi_representer(MsbtFile, dataclass_representer)
+        CoreDumper.add_multi_representer(WordData, dataclass_representer)
+        CoreDumper.add_multi_representer(LabelData, dataclass_representer)
+
         print("Running in YAML mode")
         linkerLabels.extend(loadYamlCoreLabels(ifdir, ignoreList))
         for toConvert in toConvertList:
@@ -364,13 +414,20 @@ def assemble_all(ifdir, mode):
                 yaml_header_string = "".join(yaml_header)
                 ifobj.seek(0)
                 decoded_yaml = decode_unity_yaml(ifobj)
-                bundle = yaml.safe_load(decoded_yaml)
+                bundle = yaml.load(decoded_yaml, Loader=CoreLoader)
 
             with open(file_path, 'w') as outputobj:
                 script_name = bundle['MonoBehaviour']['m_Name']
                 new_scripts = scripts[script_name]["Scripts"]
                 bundle['MonoBehaviour']['Scripts'] = new_scripts
-                new_bundle = yaml.safe_dump(bundle, explicit_start=True, sort_keys=False)
+                new_bundle = yaml.dump(
+                    bundle,
+                    Dumper=CoreDumper,
+                    explicit_start=True,
+                    sort_keys=False,
+                    allow_unicode=True,
+                    default_flow_style=False
+                )
                 final_bundle = yaml_header_string + new_bundle[4:]
                 outputobj.writelines(final_bundle)
         updateYamlLabels("Assets/format_msbt/en/english", "english", labelDatas)

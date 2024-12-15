@@ -63,11 +63,7 @@ class EvMacro:
         return self.cmdType.isValid()
 
 class Indicator(IntEnum):
-    @classmethod
-    def to_yaml(cls, dumper, data):
-        return dumper.represent_scalar('tag:yaml.org,2002:int', str(int(data)))
-
-    ScrollPage = auto()
+    ScrollPage = 0
     ScrollLine = auto()
     NewLine = auto()
     TagStart = auto()
