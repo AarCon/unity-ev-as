@@ -103,6 +103,7 @@ def convertToUnity(ifpath, scripts, strList, linkerLabels):
             "Commands" : scriptCommands
         })
     tree["Scripts"] = treeScripts
+    # print(strList)
     tree["StrList"] = strList
     return tree
 
@@ -322,6 +323,7 @@ def loadYamlCoreLabels(ifpath, ignoreNames):
             if "Scripts" not in tree:
                 continue
             scripts = tree["Scripts"]
+            print(scripts.keys())
             for script in scripts:
                 label = script["Label"]
                 linkerLabels.append(label)
@@ -418,8 +420,10 @@ def assemble_all(ifdir, mode):
 
             with open(file_path, 'w') as outputobj:
                 script_name = bundle['MonoBehaviour']['m_Name']
-                new_scripts = scripts[script_name]["Scripts"]
-                bundle['MonoBehaviour']['Scripts'] = new_scripts
+                new_scripts = scripts[script_name]
+                ## You have to write these individually or else the file headers will get overwritten which causes problems
+                bundle['MonoBehaviour']['Scripts'] = new_scripts["Scripts"]
+                bundle['MonoBehaviour']['StrList'] = new_scripts['StrList']
                 new_bundle = yaml.dump(
                     bundle,
                     Dumper=CoreDumper,
