@@ -323,7 +323,6 @@ def loadYamlCoreLabels(ifpath, ignoreNames):
             if "Scripts" not in tree:
                 continue
             scripts = tree["Scripts"]
-            print(scripts.keys())
             for script in scripts:
                 label = script["Label"]
                 linkerLabels.append(label)
