@@ -20,9 +20,9 @@ from ev_work import EvWork
 from ev_flag import EvFlag
 from ev_sys_flag import EvSysFlag
 
-MAX_WORK = 500
-MAX_FLAG = 4000
-MAX_SYS_FLAG = 1000
+MAX_WORK = 4999
+MAX_FLAG = 14999
+MAX_SYS_FLAG = 14999
 
 MACRO_NAME_CMD_TABLE = {
     EvCmdType._POKE_TYPE_NAME : msbt.TagID.PokeType,
@@ -564,7 +564,7 @@ class evAssembler(evListener):
             self.scripts[self.currentLabel][self.currCmdIdx].args.append(
                 EvArg(EvArgType.Flag, argVal, ctx.start.line, ctx.start.column)
             )
-    
+
         if argVal > MAX_FLAG:
             print("[Warning] line {}:{}:{} Invalid Flag: #{}".format(self.fileName, ctx.start.line, ctx.start.column, argVal))
 
@@ -592,7 +592,7 @@ class evAssembler(evListener):
             self.scripts[self.currentLabel][self.currCmdIdx].args.append(
                 EvArg(EvArgType.SysFlag, argVal, ctx.start.line, ctx.start.column)
             )
-    
+
     def enterString_(self, ctx: evParser.String_Context):
         strVal = str(ctx.getChild(0))[1:-1] # Trim off apostrophes
         if self.macro.isValid():
@@ -605,4 +605,4 @@ class evAssembler(evListener):
             argVal = self.strTbl.index(strVal)
             self.scripts[self.currentLabel][self.currCmdIdx].args.append(
                 EvArg(EvArgType.String, argVal, ctx.start.line, ctx.start.column)
-            )    
+            )
