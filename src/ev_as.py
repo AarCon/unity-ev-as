@@ -8,6 +8,8 @@ from yamlcore import CoreLoader
 from yamlcore import CoreDumper
 import sys
 from argparse import ArgumentParser
+import hashlib
+import time
 
 import UnityPy
 from gdatamanger import DATA_FILES
@@ -41,6 +43,8 @@ from validator import Validator
 from ev_parse import decode_unity_yaml
 from dataclasses import asdict
 
+CACHE_FILE = "file_hash_cache.json"
+
 def jsonDumpUnity(tree, ofpath):
     with open(ofpath, "w") as ofobj:
         json.dump(tree, ofobj, indent=4)
@@ -54,6 +58,46 @@ def none_representer(dumper, data):
 
 def dataclass_representer(dumper, data):
     return dumper.represent_dict(data.to_yaml_dict())
+
+def calculate_file_hash(filepath):
+    """Calculate the hash of a file to detect changes."""
+    hasher = hashlib.md5()
+    with open(filepath, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            hasher.update(chunk)
+    return hasher.hexdigest()
+
+def file_has_changed(filepath, basename, cache):
+    """Check if a file has changed by comparing its hash."""
+    current_hash = calculate_file_hash(filepath)
+    if basename in cache and cache[basename] == current_hash:
+        return False
+    cache[basename] = current_hash
+    return True
+
+def load_file_hash_cache():
+    """Load the file hash cache from a JSON file."""
+    if os.path.exists(CACHE_FILE):
+        with open(CACHE_FILE, "r") as f:
+            return json.load(f)
+    return {}
+
+def save_file_hash_cache(cache):
+    """Save the file hash cache to a JSON file."""
+    with open(CACHE_FILE, "w") as f:
+        json.dump(cache, f, indent=4)
+
+def generate_file_hash_cache(ifdir):
+    """Generate the file hash cache for all files in the specified directory."""
+    file_hash_cache = {}
+    for ifpath in glob.glob(os.path.join(ifdir, "**"), recursive=True):
+        if os.path.isfile(ifpath):
+            basename = os.path.basename(ifpath)
+            basename = os.path.splitext(basename)[0]
+
+            file_hash_cache[basename] = calculate_file_hash(ifpath)
+    save_file_hash_cache(file_hash_cache)
+    print(f"File hash cache generated and saved to {CACHE_FILE}")
 
 def convertToUnity(ifpath, scripts, strList, linkerLabels):
     # FunctionDefinition.load("ev_scripts.json")
@@ -302,13 +346,17 @@ def loadCoreLabels(ifpath, ignoreNames):
 
     return linkerLabels
 
-def loadYamlCoreLabels(ifpath, ignoreNames):
+def loadYamlCoreLabels(ifpath, ignoreNames, debug=False):
     linkerLabels = []
+    file_times = []
     for filename in os.listdir(ifpath):
         file_path = os.path.join(ifpath, filename)
+        if filename.split(".")[0] not in ignoreNames:
+            continue
         if not file_path.endswith(".asset"):
             # NO meta here
             continue
+        t0 = time.time()
         with open(file_path, "r") as ifobj:
             try:
                 decoded_yaml = decode_unity_yaml(ifobj)
@@ -317,30 +365,42 @@ def loadYamlCoreLabels(ifpath, ignoreNames):
             except Exception as exc:
                 print(exc)
                 print("Failed to unpack: {}".format(file_path))
-
-            if tree["m_Name"] in ignoreNames:
-                continue
             if "Scripts" not in tree:
                 continue
             scripts = tree["Scripts"]
             for script in scripts:
                 label = script["Label"]
                 linkerLabels.append(label)
-
+        t1 = time.time()
+        file_times.append(t1 - t0)
+        if debug:
+            print(f"[Timing] loadYamlCoreLabels {file_path}: {t1-t0:.3f}s")
+    if len(file_times) > 0 and debug:
+        avg_time = sum(file_times) / len(file_times)
+        print(f"[Timing] loadYamlCoreLabels average per file: {avg_time:.3f}s")
+    elif debug:
+        print("[Timing] loadYamlCoreLabels: No .asset files processed.")
     return linkerLabels
 
-def assemble_all(ifdir, mode):
+def assemble_all(ifdir, mode, debug=False):
+    start_time = time.time()
     scripts = {}
     labelDatas = {}
     flags = {}
     works = {}
     sysflags = {}
+    file_hash_cache = load_file_hash_cache()
+    t0 = time.time()
+
     if os.path.exists("scripts/global_defines.ev"):
         assembler = load_definitions()
         flags = assembler.flags
         works = assembler.works
         sysflags = assembler.sysflags
-    
+    t1 = time.time()
+    if debug:
+        print(f"[Timing] load_definitions: {t1-t0:.3f}s")
+
     commands = {}
     if os.path.exists("commands.json"):
         print("Loading external commands reference from commands.json")
@@ -351,16 +411,26 @@ def assemble_all(ifdir, mode):
                     commands[entry["Name"]] = entry["Id"]
                 except KeyError:
                     print("Unable to load commands.json, missing either Id or Name key. Defaulting to known commands")
+    t2 = time.time()
+    if debug:
+        print(f"[Timing] load commands.json: {t2-t1:.3f}s")
 
     linkerLabels = []
     toConvertList = []
     ignoreList = []
+    file_times = []
     for ifpath in glob.glob("scripts/*.ev"):
+        file_start = time.time()
         # Special file with special behaviour
         basename = os.path.basename(ifpath)
         basename = os.path.splitext(basename)[0]
         if basename == "global_defines.ev":
             continue
+
+        # Skip processing if the file hasn't changed
+        if not file_has_changed(ifpath, basename, file_hash_cache):
+            continue
+        
         input_stream = FileStream(ifpath, encoding='utf-8')
         lexer = evLexer(input_stream)
         stream = CommonTokenStream(lexer)
@@ -374,13 +444,44 @@ def assemble_all(ifdir, mode):
         linkerLabels.extend(assembler.scripts.keys())
         labelDatas.update(assembler.macroAssembler.labelDatas)
         ignoreList.append(basename)
+        file_end = time.time()
+        file_times.append(file_end - file_start)
+        if debug:
+            print(f"[Timing] {ifpath}: {file_end-file_start:.3f}s")
+    if len(ignoreList) == 0:
+        ## I'm just going to use this to say if a file has any changes
+        ## I know it's not what the variable name means, fight me.
+        return
+    if debug:
+        print(ignoreList)
+    t3 = time.time()
+    if debug:
+        print(f"[Timing] parse .ev files: {t3-t2:.3f}s")
+        if file_times:
+            avg_time = sum(file_times) / len(file_times)
+            print(f"[Timing] Average per .ev file: {avg_time:.3f}s")
+        else:
+            print("[Timing] No .ev files processed.")
+
     if mode == "bundle":
         linkerLabels.extend(loadCoreLabels("Dpr/ev_script", ignoreList))
+        t4 = time.time()
+        if debug:
+            print(f"[Timing] loadCoreLabels: {t4-t3:.3f}s")
         for toConvert in toConvertList:
             unityTree = convertToUnity(toConvert[0], toConvert[1], toConvert[2], linkerLabels)
             scripts[toConvert[3]] = unityTree
+        t5 = time.time()
+        if debug:
+            print(f"[Timing] convertToUnity: {t5-t4:.3f}s")
         repackUnityAll("Dpr/ev_script", "bin/ev_script", scripts)
+        t6 = time.time()
+        if debug:
+            print(f"[Timing] repackUnityAll: {t6-t5:.3f}s")
         updateLabelDatas("AssetFolder/english_Export", "english", labelDatas)
+        t7 = time.time()
+        if debug:
+            print(f"[Timing] updateLabelDatas: {t7-t6:.3f}s")
     elif mode == "yaml":
         # Do the yaml thing
         CoreDumper.add_multi_representer(EvArgType, int_enum_representer)
@@ -401,22 +502,36 @@ def assemble_all(ifdir, mode):
         CoreDumper.add_multi_representer(LabelData, dataclass_representer)
 
         print("Running in YAML mode")
-        linkerLabels.extend(loadYamlCoreLabels(ifdir, ignoreList))
+        linkerLabels.extend(loadYamlCoreLabels(ifdir, ignoreList, debug=debug))
+        t4 = time.time()
+        if debug:
+            print(f"[Timing] loadYamlCoreLabels: {t4-t3:.3f}s")
         for toConvert in toConvertList:
             unityTree = convertToUnity(toConvert[0], toConvert[1], toConvert[2], linkerLabels)
             scripts[toConvert[3]] = unityTree
+        t5 = time.time()
+        if debug:
+            print(f"[Timing] convertToUnity: {t5-t4:.3f}s")
         for filename in os.listdir(ifdir):
             file_path = os.path.join(ifdir, filename)
+            if filename.split(".")[0] not in ignoreList:
+                continue
             if not file_path.endswith(".asset"):
                 # NO meta here
                 continue
+            basename = os.path.basename(file_path)
+            basename = os.path.splitext(basename)[0]
+            if basename == "global_defines.ev":
+                continue
+            if not file_has_changed(file_path, basename, file_hash_cache):
+                continue
+            file_write_start = time.time()
             with open(file_path, 'r') as ifobj:
                 yaml_header = ifobj.readlines()[:3]
                 yaml_header_string = "".join(yaml_header)
                 ifobj.seek(0)
                 decoded_yaml = decode_unity_yaml(ifobj)
                 bundle = yaml.load(decoded_yaml, Loader=CoreLoader)
-
             with open(file_path, 'w') as outputobj:
                 script_name = bundle['MonoBehaviour']['m_Name']
                 new_scripts = scripts[script_name]
@@ -433,20 +548,39 @@ def assemble_all(ifdir, mode):
                 )
                 final_bundle = yaml_header_string + new_bundle[4:]
                 outputobj.writelines(final_bundle)
+            file_write_end = time.time()
+            if debug:
+                print(f"[Timing] yaml file writing {file_path}: {file_write_end-file_write_start:.3f}s")
+        t6 = time.time()
+        if debug:
+            print(f"[Timing] yaml file writing total: {t6-t5:.3f}s")
         updateYamlLabels("Assets/format_msbt/en/english", "english", labelDatas)
+        t7 = time.time()
+        if debug:
+            print(f"[Timing] updateYamlLabels: {t7-t6:.3f}s")
     else:
         raise ValueError(f"'{mode}' is an Invalid mode. Must be 'yaml' or 'bundle'.")
+
+    generate_file_hash_cache(".\scripts")
+    end_time = time.time()
+    if debug:
+        print(f"[Timing] Total assemble_all: {end_time-start_time:.3f}s")
 
 def main():
     parser = ArgumentParser()
     parser.add_argument("-i", "--input", dest='ifpath', action='store', default="Dpr/ev_script")
-    parser.add_argument("-m", "--mode", dest='mode', action='store', default="bundle") # yaml is the other option
+    parser.add_argument("-m", "--mode", dest='mode', action='store', default="bundle", 
+                        help="Mode of operation: 'bundle', 'yaml', or 'generate-cache'")
+    parser.add_argument("--debug", dest='debug', action='store_true', help="Enable timing debug output")
     # parser.add_argument("-s", "--script", dest='script', action='store', required=True)
 
     vargs = parser.parse_args()
-    # assemble(vargs.ifpath, vargs.ofpath, vargs.script)
-    assemble_all(vargs.ifpath, vargs.mode)
-    print("Assembly finished")
+
+    if vargs.mode == "generate-cache":
+        generate_file_hash_cache(vargs.ifpath)
+    else:
+        assemble_all(vargs.ifpath, vargs.mode, debug=vargs.debug)
+        print("Assembly finished")
 
 if __name__ == "__main__":
     main()
