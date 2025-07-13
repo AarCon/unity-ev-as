@@ -169,11 +169,13 @@ def repackUnity(ofpath, script, unityTree):
         # Thanks Aldo796
         ofobj.write(bundle.file.save(packer=(64,2)))
 
-def updateLabelDatas(path, lang, labelDatas):
+def updateLabelDatas(path, lang, labelDatas, debug=False):
     print("Updating message files using Macro information.")
     msbt_files = {}
+    file_times = []
     for data_file in DATA_FILES:
         ifpath = os.path.join(path, "{}_{}.json".format(lang, data_file))
+        t0 = time.time()
         with open(ifpath, "r", encoding='utf-8') as ifobj:
             try:
                 msbt_file = MsbtFile.Schema().loads(ifobj.read())
@@ -182,7 +184,13 @@ def updateLabelDatas(path, lang, labelDatas):
                 print(exc)
                 return
             msbt_files[data_file] = msbt_file
+        t1 = time.time()
+        file_times.append(t1 - t0)
+        if debug:
+            print(f"[Timing] updateLabelDatas load {ifpath}: {t1-t0:.3f}s")
+    label_times = []
     for scriptMessage, labelData in labelDatas.items():
+        t0 = time.time()
         splitMsg = scriptMessage.split('%')
         dataFile = splitMsg[0]
         unlocalized_key = splitMsg[1]
@@ -196,25 +204,43 @@ def updateLabelDatas(path, lang, labelDatas):
                 found_entry = True
                 break
         if found_entry:
+            t1 = time.time()
+            label_times.append(t1 - t0)
             continue
         arrayIndex = msbt_file.labelDataArray[-1].arrayIndex + 1
         labelData.labelIndex = arrayIndex
         labelData.arrayIndex = arrayIndex
         msbt_file.labelDataArray.append(labelData)
-    
+        t1 = time.time()
+        label_times.append(t1 - t0)
+    if label_times and debug:
+        avg_label_time = sum(label_times) / len(label_times)
+        print(f"[Timing] updateLabelDatas average per labelData: {avg_label_time:.3f}s")
     for data_file in DATA_FILES:
         ifpath = os.path.join(path, "{}_{}.json".format(lang, data_file))
+        t0 = time.time()
         with open(ifpath, "w", encoding='utf-8') as ofobj:
             msbt_file = msbt_files[data_file]
             json.dump(MsbtFile.Schema().dump(msbt_file), ofobj, indent=4, ensure_ascii=False)
+        t1 = time.time()
+        file_times.append(t1 - t0)
+        if debug:
+            print(f"[Timing] updateLabelDatas write {ifpath}: {t1-t0:.3f}s")
+    if file_times and debug:
+        avg_time = sum(file_times) / len(file_times)
+        print(f"[Timing] updateLabelDatas average per file: {avg_time:.3f}s")
 
 def updateYamlLabels(path, lang, labelDatas):
     print("Updating message files using Macro information.")
     msbt_files = {}
+    msbt_headers = {}
     for data_file in DATA_FILES:
         ifpath = os.path.join(path, f"{lang}_{data_file}.asset")
         with open(ifpath, "r", encoding='utf-8') as ifobj:
             try:
+                yaml_header = ifobj.readlines()[:3]
+                yaml_header_string = "".join(yaml_header)
+                ifobj.seek(0)
                 decoded_yaml = decode_unity_yaml(ifobj)
                 bundle = yaml.load(decoded_yaml, Loader=CoreLoader)
                 tree = bundle["MonoBehaviour"]
@@ -223,6 +249,7 @@ def updateYamlLabels(path, lang, labelDatas):
                 print(exc)
                 return
             msbt_files[data_file] = tree
+            msbt_headers[data_file] = yaml_header_string
     for scriptMessage, labelData in labelDatas.items():
         splitMsg = scriptMessage.split('%')
         dataFile = splitMsg[0]
@@ -252,20 +279,13 @@ def updateYamlLabels(path, lang, labelDatas):
 
     for data_file in DATA_FILES:
         ifpath = os.path.join(path, f"{lang}_{data_file}.asset")
-        with open(ifpath, "r", encoding='utf-8') as ifobj:
-            try:
-                yaml_header = ifobj.readlines()[:3]
-                yaml_header_string = "".join(yaml_header)
-                ifobj.seek(0)
-                decoded_yaml = decode_unity_yaml(ifobj)
-                bundle = yaml.load(decoded_yaml, Loader=CoreLoader)
-            except TypeError as e:
-                print("Something wrong", ifpath, bundle.keys())
-                sys.exit()
         with open(ifpath, "w", encoding='utf-8') as ofobj:
-            msbt_file = msbt_files[data_file]['labelDataArray']
+            msbt_header = msbt_headers[data_file]
+            msbt_file = msbt_files[data_file]
 
-            bundle['MonoBehaviour']['labelDataArray'] = msbt_file
+            bundle['MonoBehaviour']['m_Name'] = msbt_file['m_Name']
+            bundle['MonoBehaviour']['hash'] = msbt_file['hash']
+            bundle['MonoBehaviour']['labelDataArray'] = msbt_file['labelDataArray']
             new_bundle = yaml.dump(
                 bundle,
                 Dumper=CoreDumper,
@@ -274,7 +294,7 @@ def updateYamlLabels(path, lang, labelDatas):
                 allow_unicode=True,
                 default_flow_style=False
             )
-            final_bundle = yaml_header_string + new_bundle[4:]
+            final_bundle = msbt_header + new_bundle[4:]
             ofobj.writelines(final_bundle)
 
 def assemble(ifpath, ofpath, script):
@@ -334,6 +354,8 @@ def loadCoreLabels(ifpath, ignoreNames):
                 continue
             data = obj.read()
             if data.name in ignoreNames:
+                # If the file has already been packed together by the previous process
+                # then the data from that will be preferred over parsing it from the ev_script
                 continue
             if obj.serialized_type.nodes:
                 tree = obj.read_typetree()
@@ -499,7 +521,6 @@ def assemble_all(ifdir, mode, debug=False):
         CoreDumper.add_multi_representer(LabelData, dataclass_representer)
         CoreDumper.add_multi_representer(MsbtFile, dataclass_representer)
         CoreDumper.add_multi_representer(WordData, dataclass_representer)
-        CoreDumper.add_multi_representer(LabelData, dataclass_representer)
 
         print("Running in YAML mode")
         linkerLabels.extend(loadYamlCoreLabels(ifdir, ignoreList, debug=debug))
