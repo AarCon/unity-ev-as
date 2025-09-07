@@ -256,19 +256,18 @@ class MacroAssembler:
                 indicator = Indicator.TagEnd
             if splitter == '{':
                 indicator = Indicator.TagStart
-            indicators[text.index(splitter)+lastIndex] = indicator
-            items[text.index(splitter)+lastIndex] = text[:text.index(splitter)]
-            lastIndex = text.index(splitter)+lastIndex
-            text = text[text.index(splitter)+len(splitter):]
-        try:
-            max_idx = max(items.keys())
-        except ValueError:
-            max_idx = 0
-        idx = max_idx
-        if items:
-            idx += len(items[idx])
-        items[idx] = text
-        indicators[idx] = Indicator.End
+
+            # Store the text before the splitter
+            text_before_splitter = text[:i]
+            items[lastIndex] = text_before_splitter
+            indicators[lastIndex] = indicator
+            
+            # Update absolute position and remaining text
+            lastIndex += len(text_before_splitter) + len(splitter)
+            text = text[i + len(splitter) :]
+
+        items[lastIndex] = text
+        indicators[lastIndex] = Indicator.End
         return {
             "items" : items,
             "indicators" : indicators
