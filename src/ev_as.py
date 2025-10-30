@@ -44,6 +44,7 @@ from ev_parse import decode_unity_yaml
 from dataclasses import asdict
 
 CACHE_FILE = "file_hash_cache.json"
+LABEL_CACHE_FILE = "label_hash_cache.json"
 
 
 def jsonDumpUnity(tree, ofpath):
@@ -107,6 +108,38 @@ def generate_file_hash_cache(ifdir):
             file_hash_cache[basename] = calculate_file_hash(ifpath)
     save_file_hash_cache(file_hash_cache)
     print(f"File hash cache generated and saved to {CACHE_FILE}")
+
+
+def load_label_hash_cache():
+    """Load the label hash cache from a JSON file."""
+    if os.path.exists(LABEL_CACHE_FILE):
+        with open(LABEL_CACHE_FILE, "r") as f:
+            return json.load(f)
+    return {}
+
+
+def save_label_hash_cache(cache):
+    """Save the label hash cache to a JSON file."""
+    with open(LABEL_CACHE_FILE, "w") as f:
+        json.dump(cache, f, indent=4)
+
+
+def calculate_label_hash(labelDatas, data_file):
+    """Calculate hash for a specific data file's labels."""
+    relevant_labels = {
+        key: asdict(value) if not isinstance(value, dict) else value
+        for key, value in labelDatas.items()
+        if key.split("%")[0] == data_file
+    }
+    if not relevant_labels:
+        return None
+    # Convert to string and hash
+    try:
+        label_str = json.dumps(relevant_labels, sort_keys=True)
+        return hashlib.md5(label_str.encode()).hexdigest()
+    except TypeError as e:
+        print(f"Warning: Failed to hash labels for {data_file}: {e}")
+        return None
 
 
 def convertToUnity(ifpath, scripts, strList, linkerLabels):
@@ -234,6 +267,13 @@ def updateLabelDatas(path, lang, labelDatas, debug=False):
 
 def updateYamlLabels(path, lang, labelDatas, debug=False):
     print("Updating message files using Macro information.")
+
+    # Load label hash cache
+    label_hash_cache = load_label_hash_cache()
+    current_cache_key = f"{path}_{lang}"
+    if current_cache_key not in label_hash_cache:
+        label_hash_cache[current_cache_key] = {}
+
     # Only process files referenced in labelDatas, preserving DATA_FILES order
     referenced_files = set()
     for scriptMessage in labelDatas.keys():
@@ -242,13 +282,33 @@ def updateYamlLabels(path, lang, labelDatas, debug=False):
         referenced_files.add(dataFile)
     used_data_files = [df for df in DATA_FILES if df in referenced_files]
 
+    # Calculate new hashes and check for changes
+    changed_files = []
+    for data_file in used_data_files:
+        new_hash = calculate_label_hash(labelDatas, data_file)
+        old_hash = label_hash_cache[current_cache_key].get(data_file)
+
+        if new_hash != old_hash:
+            changed_files.append(data_file)
+            label_hash_cache[current_cache_key][data_file] = new_hash
+
+    if not changed_files or len(changed_files) == 0:
+        if debug:
+            print(
+                f"[Timing] updateYamlLabels: No changes detected in any files for {lang}"
+            )
+        return
+
+    # Save updated cache
+    save_label_hash_cache(label_hash_cache)
+
     msbt_files = {}
     msbt_headers = {}
     unchanged_msbt_bundles = {}
     original_label_arrays = {}
     load_times = []
-    # Only load the used files. List needs to be reversed or the last file will be overwritten by the previous one
-    for data_file in reversed(used_data_files):
+    # Only load the files that have changes. List needs to be reversed or the last file will be overwritten by the previous one
+    for data_file in reversed(changed_files):
         ifpath = os.path.join(path, f"{lang}_{data_file}.asset")
         t0 = time.time()
         with open(ifpath, "r", encoding="utf-8") as ifobj:
@@ -278,10 +338,12 @@ def updateYamlLabels(path, lang, labelDatas, debug=False):
         if debug:
             print(f"[Timing] updateYamlLabels load {tree['m_Name']}: {t1-t0:.3f}s")
 
-    # Update only the loaded files
+    # Update only the changed files
     for scriptMessage, labelData in labelDatas.items():
         splitMsg = scriptMessage.split("%")
         dataFile = splitMsg[0]
+        if dataFile not in changed_files:
+            continue
         unlocalized_key = splitMsg[1]
         msbt_file: MsbtFile = msbt_files[dataFile]
         found_entry = False
@@ -307,8 +369,8 @@ def updateYamlLabels(path, lang, labelDatas, debug=False):
         msbt_file["labelDataArray"].append(labelData)
 
     write_times = []
-    # Only write the used files if labelDataArray has changed
-    for data_file in used_data_files:
+    # Only write the changed files
+    for data_file in changed_files:
         msbt_file = msbt_files[data_file]
         # Convert all entries to dict for comparison
         current_label_array = [
@@ -663,7 +725,7 @@ def assemble_all(ifdir, mode, debug=False):
     else:
         raise ValueError(f"'{mode}' is an Invalid mode. Must be 'yaml' or 'bundle'.")
 
-    generate_file_hash_cache(".\scripts")
+    generate_file_hash_cache(".\\scripts")
     end_time = time.time()
     if debug:
         print(f"[Timing] Total assemble_all: {end_time-start_time:.3f}s")
