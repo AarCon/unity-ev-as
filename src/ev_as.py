@@ -531,7 +531,7 @@ def loadYamlCoreLabels(ifpath, ignoreNames, debug=False):
     return linkerLabels
 
 
-def assemble_all(ifdir, mode, debug=False):
+def assemble_all(ifdir, mode, debug=False, override=False):
     start_time = time.time()
     scripts = {}
     labelDatas = {}
@@ -578,6 +578,14 @@ def assemble_all(ifdir, mode, debug=False):
         if basename == "global_defines.ev":
             continue
 
+        # Causes the parser to not have every file to read from
+        # and causes minor warnings to pop up in the console.
+        # Not the recommended way of running ev_as
+        override_hash_change = False
+        if override:
+            if not file_has_changed(ifpath, basename, file_hash_cache):
+                continue
+            override_hash_change = True
 
         input_stream = FileStream(ifpath, encoding="utf-8")
         lexer = evLexer(input_stream)
@@ -596,6 +604,10 @@ def assemble_all(ifdir, mode, debug=False):
         walker.walk(assembler, tree)
         # Skip processing if the file hasn't changed
         if file_has_changed(ifpath, basename, file_hash_cache):
+            toConvertList.append((ifpath, assembler.scripts, assembler.strTbl, basename))
+            ignoreList.append(basename)
+        if override_hash_change:
+            # Only worry about this if override_safety is enabled
             toConvertList.append((ifpath, assembler.scripts, assembler.strTbl, basename))
             ignoreList.append(basename)
         linkerLabels.extend(assembler.scripts.keys())
@@ -746,6 +758,12 @@ def main():
     parser.add_argument(
         "--debug", dest="debug", action="store_true", help="Enable timing debug output"
     )
+    parser.add_argument(# This literally just shows some warnings that don't amount to anything
+        "--override_safety",
+        dest="override_safety",
+        action="store_true",
+        help="WARNING: Will increase the speed of operation at the expense of all safety measures. Use with Extreme Caution"
+    )
     # parser.add_argument("-s", "--script", dest='script', action='store', required=True)
 
     vargs = parser.parse_args()
@@ -753,7 +771,7 @@ def main():
     if vargs.mode == "generate-cache":
         generate_file_hash_cache(vargs.ifpath)
     else:
-        assemble_all(vargs.ifpath, vargs.mode, debug=vargs.debug)
+        assemble_all(vargs.ifpath, vargs.mode, debug=vargs.debug, override=vargs.override_safety)
         print("Assembly finished")
 
 
