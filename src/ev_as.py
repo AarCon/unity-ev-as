@@ -578,9 +578,6 @@ def assemble_all(ifdir, mode, debug=False):
         if basename == "global_defines.ev":
             continue
 
-        # Skip processing if the file hasn't changed
-        if not file_has_changed(ifpath, basename, file_hash_cache):
-            continue
 
         input_stream = FileStream(ifpath, encoding="utf-8")
         lexer = evLexer(input_stream)
@@ -597,10 +594,12 @@ def assemble_all(ifdir, mode, debug=False):
         )
         walker = ParseTreeWalker()
         walker.walk(assembler, tree)
-        toConvertList.append((ifpath, assembler.scripts, assembler.strTbl, basename))
+        # Skip processing if the file hasn't changed
+        if file_has_changed(ifpath, basename, file_hash_cache):
+            toConvertList.append((ifpath, assembler.scripts, assembler.strTbl, basename))
+            ignoreList.append(basename)
         linkerLabels.extend(assembler.scripts.keys())
         labelDatas.update(assembler.macroAssembler.labelDatas)
-        ignoreList.append(basename)
         file_end = time.time()
         file_times.append(file_end - file_start)
         if debug:
