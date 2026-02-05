@@ -2,6 +2,7 @@ from enum import IntEnum, auto
 import struct
 from dataclasses import dataclass
 import sys
+import re
 
 from antlr4 import *
 from UnityPy.streams import EndianBinaryReader, EndianBinaryWriter
@@ -171,6 +172,10 @@ class MacroAssembler:
         if origText.endswith('\\r'):
             origText = origText[:-2]
         text = origText
+
+        # Regex for HTML-like tags: <tag ...> or </tag>
+        tag_pattern = re.compile(r'<[^>]+>')
+        # Splitters: escape sequences and curly braces
         splitters = ['\\n', '\\r', '\\f', '{', '}']
         items = {}
         indicators = {}
@@ -178,8 +183,12 @@ class MacroAssembler:
         while True:
             indices = {}
             for splitter in splitters:
-                if splitter in text:
-                    indices[text.index(splitter)] = splitter
+                idx = text.find(splitter)
+                if idx != -1:
+                    indices[idx] = splitter
+            tag_match = tag_pattern.search(text)
+            if tag_match:
+                indices[tag_match.start()] = tag_match.group(0)
             if not indices:
                 break
             i = min(indices.keys())
@@ -195,6 +204,12 @@ class MacroAssembler:
                 indicator = Indicator.TagEnd
             if splitter == '{':
                 indicator = Indicator.TagStart
+            if tag_pattern.fullmatch(splitter):
+                # Generic HTML tag indicators
+                if splitter.startswith('</'):
+                    indicator = "HtmlTagEnd:" + splitter
+                else:
+                    indicator = "HtmlTagStart:" + splitter
             indicators[text.index(splitter)+lastIndex] = indicator
             items[text.index(splitter)+lastIndex] = text[:text.index(splitter)]
             lastIndex = text.index(splitter)+lastIndex
@@ -320,6 +335,49 @@ class MacroAssembler:
                     0.0,
                     item,
                     calculateStrWidth(item)
+                ))
+            if isinstance(indicator, str) and indicator.startswith("HtmlTagStart:"):
+                tag = indicator[len("HtmlTagStart:"):]
+
+                # Flush preceding text
+                if item:
+                    wordDataArray.append(msbt.WordData(
+                        msbt.WordDataPatternID.Str,
+                        msbt.MsgEventID.NONE,
+                        -1,
+                        0,
+                        item,
+                        calculateStrWidth(item)
+                    ))
+
+                wordDataArray.append(msbt.WordData(
+                    msbt.WordDataPatternID.CtrlTag,
+                    msbt.MsgEventID.NONE,
+                    -1,
+                    0,
+                    tag,
+                    -1.0
+                ))
+            if isinstance(indicator, str) and indicator.startswith("HtmlTagEnd:"):
+                tag = indicator[len("HtmlTagEnd:"):]
+
+                if item:
+                    wordDataArray.append(msbt.WordData(
+                        msbt.WordDataPatternID.Str,
+                        msbt.MsgEventID.NONE,
+                        -1,
+                        0,
+                        item,
+                        calculateStrWidth(item)
+                    ))
+
+                wordDataArray.append(msbt.WordData(
+                    msbt.WordDataPatternID.CtrlTag,
+                    msbt.MsgEventID.NONE,
+                    -1,
+                    0,
+                    tag,
+                    -1.0
                 ))
 
         return msbt.LabelData(
