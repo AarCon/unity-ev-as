@@ -100,7 +100,11 @@ def save_file_hash_cache(cache):
 def generate_file_hash_cache(ifdir):
     """Generate the file hash cache for all files in the specified directory."""
     file_hash_cache = {}
-    for ifpath in glob.glob(os.path.join(ifdir, "**"), recursive=True):
+    # Normalize the path for crossplatform compatibility
+    ifdir = os.path.normpath(ifdir)
+    # Use **/* pattern to properly match all files recursively
+    pattern = os.path.join(ifdir, "**", "*")
+    for ifpath in glob.glob(pattern, recursive=True):
         if os.path.isfile(ifpath):
             basename = os.path.basename(ifpath)
             basename = os.path.splitext(basename)[0]
@@ -292,7 +296,7 @@ def updateYamlLabels(path, lang, labelDatas, debug=False):
             changed_files.append(data_file)
             label_hash_cache[current_cache_key][data_file] = new_hash
 
-    if not changed_files or len(changed_files) == 0:
+    if not changed_files:
         if debug:
             print(
                 f"[Timing] updateYamlLabels: No changes detected in any files for {lang}"
@@ -304,7 +308,7 @@ def updateYamlLabels(path, lang, labelDatas, debug=False):
 
     msbt_files = {}
     msbt_headers = {}
-    unchanged_msbt_bundles = {}
+    msbt_bundles = {}
     original_label_arrays = {}
     load_times = []
     # Only load the files that have changes. List needs to be reversed or the last file will be overwritten by the previous one
@@ -327,8 +331,8 @@ def updateYamlLabels(path, lang, labelDatas, debug=False):
                 return
             msbt_files[data_file] = tree
             msbt_headers[data_file] = yaml_header_string
-            unchanged_msbt_bundles[data_file] = bundle
-            # Store a copy of the original labelDataArray for change detection. Use asdict to make sure all entries are dicts for comparison
+            msbt_bundles[data_file] = bundle
+            # Store a copy of the original labelDataArray for change detection. Use asdict to make sur all entries are dicts for comparison
             original_label_arrays[data_file] = [
                 asdict(ld) if not isinstance(ld, dict) else ld
                 for ld in tree["labelDataArray"]
@@ -345,7 +349,7 @@ def updateYamlLabels(path, lang, labelDatas, debug=False):
         if dataFile not in changed_files:
             continue
         unlocalized_key = splitMsg[1]
-        msbt_file: MsbtFile = msbt_files[dataFile]
+        msbt_file = msbt_files[dataFile]
         found_entry = False
         for i, iLabelData in enumerate(msbt_file["labelDataArray"]):
             ## PyYaml cannot unpack dataclasses or classes at all (at least not easily)
@@ -387,7 +391,7 @@ def updateYamlLabels(path, lang, labelDatas, debug=False):
         t0 = time.time()
         with open(ifpath, "w", encoding="utf-8") as ofobj:
             msbt_header = msbt_headers[data_file]
-            bundle = unchanged_msbt_bundles[data_file]
+            bundle = msbt_bundles[data_file]
             bundle["MonoBehaviour"]["m_Name"] = msbt_file["m_Name"]
             bundle["MonoBehaviour"]["hash"] = msbt_file["hash"]
             bundle["MonoBehaviour"]["labelDataArray"] = msbt_file["labelDataArray"]
@@ -531,7 +535,7 @@ def loadYamlCoreLabels(ifpath, ignoreNames, debug=False):
     return linkerLabels
 
 
-def assemble_all(ifdir, mode, debug=False, override=False):
+def assemble_all(ifdir, mode, debug=False):
     start_time = time.time()
     scripts = {}
     labelDatas = {}
@@ -578,14 +582,9 @@ def assemble_all(ifdir, mode, debug=False, override=False):
         if basename == "global_defines.ev":
             continue
 
-        # Causes the parser to not have every file to read from
-        # and causes minor warnings to pop up in the console.
-        # Not the recommended way of running ev_as
-        override_hash_change = False
-        if override:
-            if not file_has_changed(ifpath, basename, file_hash_cache):
-                continue
-            override_hash_change = True
+        # Skip processing if the file hasn't changed
+        if not file_has_changed(ifpath, basename, file_hash_cache):
+            continue
 
         input_stream = FileStream(ifpath, encoding="utf-8")
         lexer = evLexer(input_stream)
@@ -602,16 +601,10 @@ def assemble_all(ifdir, mode, debug=False, override=False):
         )
         walker = ParseTreeWalker()
         walker.walk(assembler, tree)
-        # Skip processing if the file hasn't changed
-        if file_has_changed(ifpath, basename, file_hash_cache):
-            toConvertList.append((ifpath, assembler.scripts, assembler.strTbl, basename))
-            ignoreList.append(basename)
-        if override_hash_change:
-            # Only worry about this if override_safety is enabled
-            toConvertList.append((ifpath, assembler.scripts, assembler.strTbl, basename))
-            ignoreList.append(basename)
+        toConvertList.append((ifpath, assembler.scripts, assembler.strTbl, basename))
         linkerLabels.extend(assembler.scripts.keys())
         labelDatas.update(assembler.macroAssembler.labelDatas)
+        ignoreList.append(basename)
         file_end = time.time()
         file_times.append(file_end - file_start)
         if debug:
@@ -736,7 +729,7 @@ def assemble_all(ifdir, mode, debug=False, override=False):
     else:
         raise ValueError(f"'{mode}' is an Invalid mode. Must be 'yaml' or 'bundle'.")
 
-    generate_file_hash_cache(".\\scripts")
+    generate_file_hash_cache("scripts")
     end_time = time.time()
     if debug:
         print(f"[Timing] Total assemble_all: {end_time-start_time:.3f}s")
@@ -758,12 +751,6 @@ def main():
     parser.add_argument(
         "--debug", dest="debug", action="store_true", help="Enable timing debug output"
     )
-    parser.add_argument(# This literally just shows some warnings that don't amount to anything
-        "--override_safety",
-        dest="override_safety",
-        action="store_true",
-        help="WARNING: Will increase the speed of operation at the expense of all safety measures. Use with Extreme Caution"
-    )
     # parser.add_argument("-s", "--script", dest='script', action='store', required=True)
 
     vargs = parser.parse_args()
@@ -771,7 +758,7 @@ def main():
     if vargs.mode == "generate-cache":
         generate_file_hash_cache(vargs.ifpath)
     else:
-        assemble_all(vargs.ifpath, vargs.mode, debug=vargs.debug, override=vargs.override_safety)
+        assemble_all(vargs.ifpath, vargs.mode, debug=vargs.debug)
         print("Assembly finished")
 
 
