@@ -100,7 +100,11 @@ def save_file_hash_cache(cache):
 def generate_file_hash_cache(ifdir):
     """Generate the file hash cache for all files in the specified directory."""
     file_hash_cache = {}
-    for ifpath in glob.glob(os.path.join(ifdir, "**"), recursive=True):
+    # Normalize the path for crossplatform compatibility
+    ifdir = os.path.normpath(ifdir)
+    # Use **/* pattern to properly match all files recursively
+    pattern = os.path.join(ifdir, "**", "*")
+    for ifpath in glob.glob(pattern, recursive=True):
         if os.path.isfile(ifpath):
             basename = os.path.basename(ifpath)
             basename = os.path.splitext(basename)[0]
@@ -292,7 +296,7 @@ def updateYamlLabels(path, lang, labelDatas, debug=False):
             changed_files.append(data_file)
             label_hash_cache[current_cache_key][data_file] = new_hash
 
-    if not changed_files or len(changed_files) == 0:
+    if not changed_files:
         if debug:
             print(
                 f"[Timing] updateYamlLabels: No changes detected in any files for {lang}"
@@ -736,7 +740,7 @@ def assemble_all(ifdir, mode, debug=False, override=False):
     else:
         raise ValueError(f"'{mode}' is an Invalid mode. Must be 'yaml' or 'bundle'.")
 
-    generate_file_hash_cache(".\\scripts")
+    generate_file_hash_cache("scripts")
     end_time = time.time()
     if debug:
         print(f"[Timing] Total assemble_all: {end_time-start_time:.3f}s")
