@@ -142,6 +142,54 @@ def calculate_label_hash(labelDatas, data_file):
         return None
 
 
+def generate_label_hash_cache():
+    """Generate the file hash cache for all files in the specified directory."""
+    ifdir = "Assets/format_msbt/en/english"
+    file_hash_cache = {}
+    labelDatas = {}
+    commands = {}
+    flags = {}
+    works = {}
+    sysflags = {}
+
+    if os.path.exists("scripts/global_defines.ev"):
+        assembler = load_definitions()
+        flags = assembler.flags
+        works = assembler.works
+        sysflags = assembler.sysflags
+
+    if os.path.exists("commands.json"):
+        print("Loading external commands reference from commands.json")
+        with open("commands.json", "r") as ofobj:
+            data = json.load(ofobj)
+            for entry in data:
+                try:
+                    commands[entry["Name"]] = entry["Id"]
+                except KeyError:
+                    print(
+                        "Unable to load commands.json, missing either Id or Name key. Defaulting to known commands"
+                    )
+
+    for ifpath in glob.glob(os.path.join(ifdir, "**"), recursive=True):
+        if os.path.isfile(ifpath):
+            basename = os.path.basename(ifpath)
+            basename = os.path.splitext(basename)[0]
+            print(basename, ifpath)
+            assembler = evAssembler(
+                ifpath,
+                commands=copy(commands),
+                flags=copy(flags),
+                works=copy(works),
+                sysflags=copy(sysflags),
+            )
+            labelDatas.update(assembler.macroAssembler.labelDatas)
+            print(labelDatas)
+
+            file_hash_cache[basename] = calculate_label_hash(labelDatas, ifpath)
+    save_label_hash_cache(file_hash_cache)
+    print(f"File hash cache generated and saved to {CACHE_FILE}")
+
+
 def convertToUnity(ifpath, scripts, strList, linkerLabels):
     # FunctionDefinition.load("ev_scripts.json")
     tree = {}
@@ -612,6 +660,7 @@ def assemble_all(ifdir, mode, debug=False, override=False):
             ignoreList.append(basename)
         linkerLabels.extend(assembler.scripts.keys())
         labelDatas.update(assembler.macroAssembler.labelDatas)
+        print(labelDatas, file_has_changed(ifpath, basename, file_hash_cache))
         file_end = time.time()
         file_times.append(file_end - file_start)
         if debug:
@@ -770,6 +819,7 @@ def main():
 
     if vargs.mode == "generate-cache":
         generate_file_hash_cache(vargs.ifpath)
+        generate_label_hash_cache()
     else:
         assemble_all(vargs.ifpath, vargs.mode, debug=vargs.debug, override=vargs.override_safety)
         print("Assembly finished")
