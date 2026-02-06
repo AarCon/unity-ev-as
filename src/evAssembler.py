@@ -227,7 +227,7 @@ class MacroAssembler:
         TAG_COMMANDS = {
             "PLAYER",
             "RIVAL",
-            "SUPPORT"
+            "SUPPORT",
             "RIVAL_POKEMON_NAME",
             "SUPPORT_POKEMON_NAME",
             # TODO: Add support for the following
@@ -333,6 +333,15 @@ class MacroAssembler:
                 ))
             if isinstance(indicator, str) and indicator.startswith("HtmlTagStart:"):
                 tag = indicator[len("HtmlTagStart:"):]
+                tag_name = tag.strip("<>").split()[0]
+
+                # Determine patternId based on tag_name
+                if tag_name.lower().startswith("color"):
+                    patternId = msbt.WordDataPatternID.ColorTag
+                elif tag_name.lower().startswith("size"):
+                    patternId = msbt.WordDataPatternID.SizeTag
+                else:
+                    patternId = msbt.WordDataPatternID.CtrlTag
 
                 # Flush preceding text
                 if item:
@@ -346,7 +355,7 @@ class MacroAssembler:
                     ))
 
                 wordDataArray.append(msbt.WordData(
-                    msbt.WordDataPatternID.CtrlTag,
+                    patternId,
                     msbt.MsgEventID.NONE,
                     -1,
                     0,
@@ -355,6 +364,15 @@ class MacroAssembler:
                 ))
             if isinstance(indicator, str) and indicator.startswith("HtmlTagEnd:"):
                 tag = indicator[len("HtmlTagEnd:"):]
+                tag_name = tag.strip("</>").split()[0]
+
+                # Determine patternId based on tag_name
+                if tag_name.lower() == "color":
+                    patternId = msbt.WordDataPatternID.ColorTag
+                elif tag_name.lower() == "size":
+                    patternId = msbt.WordDataPatternID.SizeTag
+                else:
+                    patternId = msbt.WordDataPatternID.CtrlTag
 
                 if item:
                     wordDataArray.append(msbt.WordData(
@@ -367,7 +385,7 @@ class MacroAssembler:
                     ))
 
                 wordDataArray.append(msbt.WordData(
-                    msbt.WordDataPatternID.CtrlTag,
+                    patternId,
                     msbt.MsgEventID.NONE,
                     -1,
                     0,
