@@ -451,7 +451,39 @@ class MacroAssembler:
             evCmdType = textMacroMap[macro.cmdType]
             return self.processTextMacro(evCmdType, macro, commands, strTbl, tags)
 
+        if macro.cmdType == EvMacroType._MACRO_MSG:
+            return self.processUnifiedMacro(macro, commands, strTbl, tags)
+
         raise RuntimeError("Invalid EvMacro: {} at {}:{}:{}".format(macro, self.fileName, macro.line, macro.column))
+
+    def processUnifiedMacro(self, macro, commands, strTbl, tags):
+        """Handle _MACRO_MSG('TYPE', 'bundle', 'label', 'text', ...) by dispatching to processTextMacro."""
+        if not macro.args:
+            raise RuntimeError("_MACRO_MSG is missing message type argument at {}:{}:{}".format(
+                self.fileName, macro.line, macro.column))
+
+        msgTypeArg = macro.args[0]
+        if msgTypeArg.argType != EvArgType.MacroString:
+            raise RuntimeError("_MACRO_MSG first argument must be a string type name at {}:{}:{}".format(
+                self.fileName, msgTypeArg.line, msgTypeArg.column))
+
+        unifiedTypeMap = {
+            'TALKMSG': EvCmdType._TALKMSG,
+            'TALK_KEYWAIT': EvCmdType._TALK_KEYWAIT,
+            'EASY_OBJ_MSG': EvCmdType._EASY_OBJ_MSG,
+            'EASY_BOARD_MSG': EvCmdType._EASY_BOARD_MSG,
+            'ADD_CUSTUM_WIN_LABEL': EvCmdType._ADD_CUSTUM_WIN_LABEL,
+        }
+
+        evCmdType = unifiedTypeMap.get(msgTypeArg.data)
+        if evCmdType is None:
+            raise RuntimeError("Unknown message type '{}' in _MACRO_MSG at {}:{}:{}. Valid types: {}".format(
+                msgTypeArg.data, self.fileName, msgTypeArg.line, msgTypeArg.column,
+                ', '.join(unifiedTypeMap.keys())))
+
+        # Create a new macro with args shifted (skip the type arg)
+        shifted = EvMacro(macro.cmdType, macro.args[1:], macro.line, macro.column)
+        return self.processTextMacro(evCmdType, shifted, commands, strTbl, tags)
 
 class evAssembler(evListener):
     def __init__(self, fileName, commands=None, flags=None, works=None, sysflags=None):
