@@ -36,8 +36,8 @@ from msbt import (
     MsgEventID,
     GroupTagID,
     TagPatternID,
-    ForceGrmID,
-    TagID,
+    ForceGrmTagID,
+    NameTagID,
 )
 from validator import Validator
 from ev_parse import decode_unity_yaml
@@ -667,8 +667,8 @@ def assemble_all(ifdir, mode, debug=False, override=False):
         CoreDumper.add_multi_representer(MsgEventID, int_enum_representer)
         CoreDumper.add_multi_representer(GroupTagID, int_enum_representer)
         CoreDumper.add_multi_representer(TagPatternID, int_enum_representer)
-        CoreDumper.add_multi_representer(ForceGrmID, int_enum_representer)
-        CoreDumper.add_multi_representer(TagID, int_enum_representer)
+        CoreDumper.add_multi_representer(ForceGrmTagID, int_enum_representer)
+        CoreDumper.add_multi_representer(NameTagID, int_enum_representer)
         CoreDumper.add_representer(type(None), none_representer)
         CoreDumper.add_multi_representer(LabelData, dataclass_representer)
         CoreDumper.add_multi_representer(MsbtFile, dataclass_representer)

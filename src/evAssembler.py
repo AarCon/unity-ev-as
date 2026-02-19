@@ -26,8 +26,50 @@ MAX_FLAG = 14999
 MAX_SYS_FLAG = 14999
 
 MACRO_NAME_CMD_TABLE = {
-    EvCmdType._POKE_TYPE_NAME : msbt.TagID.PokeType,
-    EvCmdType._NUMBER_NAME : msbt.TagID.Number
+    # EvCmdType._PLAYER_NAME : msbt.NameTagID.Default,
+    # EvCmdType._RIVAL_NAME : msbt.NameTagID.Default,
+    # EvCmdType._SUPPORT_NAME : msbt.NameTagID.Default,
+    # EvCmdType._POKEMON_NAME : msbt.NameTagID.Default,
+    # EvCmdType._ITEM_NAME : msbt.NameTagID.Default,
+    # EvCmdType._POCKET_NAME : msbt.NameTagID.Default,
+    # EvCmdType._ITEM_WAZA_NAME : msbt.NameTagID.Default,
+    # EvCmdType._WAZA_NAME : msbt.NameTagID.Default,
+    # EvCmdType._NUMBER_NAME : msbt.NameTagID.Default,
+    # EvCmdType._NUMBER_NAME_EX : msbt.NameTagID.Default,
+    # EvCmdType._NICK_NAME : msbt.NameTagID.Default,
+    # EvCmdType._POKETCH_NAME : msbt.NameTagID.Default,
+    # EvCmdType._TR_TYPE_NAME : msbt.NameTagID.Default,
+    # EvCmdType._MY_TR_TYPE_NAME : msbt.NameTagID.Default,
+    # EvCmdType._POKEMON_NAME_EXTRA : msbt.NameTagID.Default,
+    EvCmdType._FIRST_POKEMON_NAME : msbt.NameTagID.PokemonName,
+    EvCmdType._RIVAL_POKEMON_NAME : msbt.NameTagID.PokemonName,
+    # EvCmdType._SUPPORT_POKEMON_NAME : msbt.NameTagID.Default,
+    # EvCmdType._NUTS_NAME : msbt.NameTagID.Default,
+    # EvCmdType._SEIKAKU_NAME : msbt.NameTagID.Default,
+    # EvCmdType._GOODS_NAME : msbt.NameTagID.Default,
+    # EvCmdType._TRAP_NAME : msbt.NameTagID.Default,
+    # EvCmdType._TAMA_NAME : msbt.NameTagID.Default,
+    # EvCmdType._ZONE_NAME : msbt.NameTagID.Default,
+    # EvCmdType._UG_SHOP_ITEM_NAME : msbt.NameTagID.Default,
+    # EvCmdType._UG_SHOP_TRAP_NAME : msbt.NameTagID.Default,
+    # EvCmdType._TEMOTI_WAZA_NAME : msbt.NameTagID.Default,
+    # EvCmdType._RIBBON_NAME : msbt.NameTagID.Default,
+    # EvCmdType._NICK_NAME_PC : msbt.NameTagID.Default,
+    # EvCmdType._ACCE_NAME : msbt.NameTagID.Default,
+    # EvCmdType._MONUMENT_NAME : msbt.NameTagID.Default,
+    # EvCmdType._IMC_BG_NAME : msbt.NameTagID.Default,
+    # EvCmdType._SEAL_NAME : msbt.NameTagID.Default,
+    # EvCmdType._GROUP_NAME : msbt.NameTagID.Default,
+    # EvCmdType._GROUP_LEADER_NAME : msbt.NameTagID.Default,
+    # EvCmdType._SPEAKERS_NAME : msbt.NameTagID.Default,
+    # EvCmdType._TEMOTI_BOX_POKEMON_NAME : msbt.NameTagID.Default,
+    # EvCmdType._PARK_ITEM_NAME : msbt.NameTagID.Default,
+    # EvCmdType._UG_ITEM_NAME : msbt.NameTagID.Default,
+    # EvCmdType._CON_CATEGORY_NAME : msbt.NameTagID.Default,
+    # EvCmdType._CON_RANK_NAME : msbt.NameTagID.Default,
+    EvCmdType._POKE_TYPE_NAME : msbt.NameTagID.PokeType,
+    # EvCmdType._POFFIN_NAME : msbt.NameTagID.Default,
+    # EvCmdType._DRESS_NAME : msbt.NameTagID.Default,
 }
 
 @dataclass
@@ -357,14 +399,36 @@ class MacroAssembler:
                     calculateStrWidth(item)
                 ))
             if indicator == Indicator.TagEnd:
-                if not item.isdigit():
+                args = item.split(",")
+
+                if not args[0].isdigit():
                     # TODO: Raise exception
                     pass
                 # Just the tag index
-                tagIndex = int(item)
+                tagIndex = int(args[0])
                 # This tag index seems to be the index into the
                 # tagData array whereas the other tagIndex is the 
                 # 
+                if len(args) > 1:
+                    groupID = int(args[1])
+                else:
+                    groupID = msbt.GroupTagID.Name
+
+                if len(args) > 2:
+                    tagID = int(args[2])
+                else:
+                    tagID = msbt.NameTagID.Default
+
+                if len(args) > 3:
+                    tagParam = int(args[3])
+                else:
+                    tagParam = 0
+
+                if groupID == msbt.DigitTagID:
+                    tagPatternID = msbt.TagPatternID.Digit
+                else:
+                    tagPatternID = msbt.TagPatternID.Word
+
                 wordDataArray.append(msbt.WordData(
                     msbt.WordDataPatternID.WordTag,
                     msbt.MsgEventID.NONE,
@@ -373,18 +437,16 @@ class MacroAssembler:
                     "",
                     -1.0
                 ))
-                tagID = msbt.TagID.Default
-                if tagIndex in tags:
-                    tagID = tags[tagIndex]
+
                 tagDataArray.append(msbt.TagData(
                     tagIndex,
-                    msbt.GroupTagID.Name,
+                    groupID,
                     tagID,
-                    msbt.TagPatternID.Word,
+                    tagPatternID,
                     0,
-                    0,
+                    tagParam,
                     [],
-                    msbt.ForceGrmID.NONE
+                    msbt.ForceGrmTagID.NONE
                 ))
             if indicator == Indicator.End:
                 wordDataArray.append(msbt.WordData(
