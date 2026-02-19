@@ -399,7 +399,7 @@ class MacroAssembler:
                     calculateStrWidth(item)
                 ))
             if indicator == Indicator.TagEnd:
-                args = item.split(",")
+                args = args = item.replace(" ", "").split(",")
 
                 if not args[0].isdigit():
                     # TODO: Raise exception
@@ -424,7 +424,7 @@ class MacroAssembler:
                 else:
                     tagParam = 0
 
-                if groupID == msbt.DigitTagID:
+                if groupID == msbt.GroupTagID.Digit:
                     tagPatternID = msbt.TagPatternID.Digit
                 else:
                     tagPatternID = msbt.TagPatternID.Word
