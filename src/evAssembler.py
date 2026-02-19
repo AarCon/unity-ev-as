@@ -2,6 +2,7 @@ from enum import IntEnum, auto
 import struct
 from dataclasses import dataclass
 import sys
+import re
 
 from antlr4 import *
 from UnityPy.streams import EndianBinaryReader, EndianBinaryWriter
@@ -232,6 +233,10 @@ class MacroAssembler:
         if origText.endswith('\\r'):
             origText = origText[:-2]
         text = origText
+
+        # Regex for HTML-like tags: <tag ...> or </tag>
+        tag_pattern = re.compile(r'<[^>]+>')
+        # Splitters: escape sequences and curly braces
         splitters = ['\\n', '\\r', '\\f', '{', '}']
         items = {}
         indicators = {}
@@ -239,8 +244,12 @@ class MacroAssembler:
         while True:
             indices = {}
             for splitter in splitters:
-                if splitter in text:
-                    indices[text.index(splitter)] = splitter
+                idx = text.find(splitter)
+                if idx != -1:
+                    indices[idx] = splitter
+            tag_match = tag_pattern.search(text)
+            if tag_match:
+                indices[tag_match.start()] = tag_match.group(0)
             if not indices:
                 break
             i = min(indices.keys())
@@ -256,12 +265,17 @@ class MacroAssembler:
                 indicator = Indicator.TagEnd
             if splitter == '{':
                 indicator = Indicator.TagStart
-
+            if tag_pattern.fullmatch(splitter):
+                # Generic HTML tag indicators
+                if splitter.startswith('</'):
+                    indicator = "HtmlTagEnd:" + splitter
+                else:
+                    indicator = "HtmlTagStart:" + splitter
             # Store the text before the splitter
             text_before_splitter = text[:i]
             items[lastIndex] = text_before_splitter
             indicators[lastIndex] = indicator
-            
+
             # Update absolute position and remaining text
             lastIndex += len(text_before_splitter) + len(splitter)
             text = text[i + len(splitter) :]
@@ -277,7 +291,7 @@ class MacroAssembler:
         TAG_COMMANDS = {
             "PLAYER",
             "RIVAL",
-            "SUPPORT"
+            "SUPPORT",
             "RIVAL_POKEMON_NAME",
             "SUPPORT_POKEMON_NAME",
             # TODO: Add support for the following
@@ -381,6 +395,67 @@ class MacroAssembler:
                     item,
                     calculateStrWidth(item)
                 ))
+            if isinstance(indicator, str) and indicator.startswith("HtmlTagStart:"):
+                tag = indicator[len("HtmlTagStart:"):]
+                tag_name = tag.strip("<>").split()[0]
+
+                # Determine patternId based on tag_name
+                if tag_name.lower().startswith("color"):
+                    patternId = msbt.WordDataPatternID.ColorTag
+                elif tag_name.lower().startswith("size"):
+                    patternId = msbt.WordDataPatternID.SizeTag
+                else:
+                    patternId = msbt.WordDataPatternID.CtrlTag
+
+                # Flush preceding text
+                if item:
+                    wordDataArray.append(msbt.WordData(
+                        msbt.WordDataPatternID.Str,
+                        msbt.MsgEventID.NONE,
+                        -1,
+                        0,
+                        item,
+                        calculateStrWidth(item)
+                    ))
+
+                wordDataArray.append(msbt.WordData(
+                    patternId,
+                    msbt.MsgEventID.NONE,
+                    -1,
+                    0,
+                    tag,
+                    -1.0
+                ))
+            if isinstance(indicator, str) and indicator.startswith("HtmlTagEnd:"):
+                tag = indicator[len("HtmlTagEnd:"):]
+                tag_name = tag.strip("</>").split()[0]
+
+                # Determine patternId based on tag_name
+                if tag_name.lower() == "color":
+                    patternId = msbt.WordDataPatternID.ColorTag
+                elif tag_name.lower() == "size":
+                    patternId = msbt.WordDataPatternID.SizeTag
+                else:
+                    patternId = msbt.WordDataPatternID.CtrlTag
+
+                if item:
+                    wordDataArray.append(msbt.WordData(
+                        msbt.WordDataPatternID.Str,
+                        msbt.MsgEventID.NONE,
+                        -1,
+                        0,
+                        item,
+                        calculateStrWidth(item)
+                    ))
+
+                wordDataArray.append(msbt.WordData(
+                    patternId,
+                    msbt.MsgEventID.NONE,
+                    -1,
+                    0,
+                    tag,
+                    -1.0
+                ))
 
         return msbt.LabelData(
             0,
@@ -397,25 +472,64 @@ class MacroAssembler:
         try:
             msgFile: EvArg = macro.args[0]
             if msgFile.argType != EvArgType.MacroString:
-                raise RuntimeError("Invalid parameter {} passed to EvMacro: {} at {}:{}:{}", msgFile.data, macro, self.fileName, msgFile.line, msgFile.column)
+                raise RuntimeError(
+                    "Invalid parameter {} passed to EvMacro: {} at {}:{}:{}",
+                    msgFile.data,
+                    macro,
+                    self.fileName,
+                    msgFile.line,
+                    msgFile.column,
+                )
         except IndexError:
-            raise RuntimeError("EvMacro: {} is missing argument msgFile at {}:{}:{}", macro, self.fileName, msgFile.line, msgFile.column)
-        
+            raise RuntimeError(
+                "EvMacro: {} is missing argument msgFile at {}:{}:{}",
+                macro,
+                self.fileName,
+                msgFile.line,
+                msgFile.column,
+            )
+
         # TODO: Add validate the actual contents of the label
         # to ensure it's proper utf-8 string.
         try:
             label: EvArg = macro.args[1]
             if label.argType != EvArgType.MacroString:
-                raise RuntimeError("Invalid parameter {} passed to EvMacro: {} at {}:{}:{}", label.data, macro, self.fileName, label.line, msgFile.column)
+                raise RuntimeError(
+                    "Invalid parameter {} passed to EvMacro: {} at {}:{}:{}",
+                    label.data,
+                    macro,
+                    self.fileName,
+                    label.line,
+                    msgFile.column,
+                )
         except IndexError:
-            raise RuntimeError("EvMacro: {} is missing argument label at {}:{}:{}", macro, self.fileName, label.line, label.column)
+            raise RuntimeError(
+                "EvMacro: {} is missing argument label at {}:{}:{}",
+                macro,
+                self.fileName,
+                label.line,
+                label.column,
+            )
         
         try:
             text: EvArg = macro.args[2]
             if text.argType != EvArgType.MacroString:
-                raise RuntimeError("Invalid parameter {} passed to EvMacro: {} at {}:{}:{}", text.data, macro, self.fileName, text.line, msgFile.column)
+                raise RuntimeError(
+                    "Invalid parameter {} passed to EvMacro: {} at {}:{}:{}",
+                    text.data,
+                    macro,
+                    self.fileName,
+                    text.line,
+                    msgFile.column,
+                )
         except IndexError:
-            raise RuntimeError("EvMacro: {} is missing argument text at {}:{}:{}", macro, self.fileName, text.line, text.column)
+            raise RuntimeError(
+                "EvMacro: {} is missing argument text at {}:{}:{}",
+                macro,
+                self.fileName,
+                text.line,
+                text.column,
+            )
         
         strVal = "{}%{}".format(msgFile.data, label.data)
         # if strVal in self.msg_keys:
@@ -439,7 +553,11 @@ class MacroAssembler:
 
     def process(self, macro, commands, strTbl, tags):
         if macro.cmdType == EvMacroType.Invalid:
-            raise RuntimeError("Invalid EvCmd or EvMacro: {} at {}:{}:{}".format(macro, self.fileName, macro.line, macro.column))
+            raise RuntimeError(
+                "Invalid EvCmd or EvMacro: {} at {}:{}:{}".format(
+                    macro, self.fileName, macro.line, macro.column
+                )
+            )
         textMacroMap = {
             EvMacroType._MACRO_TALKMSG : EvCmdType._TALKMSG,
             EvMacroType._MACRO_TALK_KEYWAIT : EvCmdType._TALK_KEYWAIT,
@@ -451,7 +569,11 @@ class MacroAssembler:
             evCmdType = textMacroMap[macro.cmdType]
             return self.processTextMacro(evCmdType, macro, commands, strTbl, tags)
 
-        raise RuntimeError("Invalid EvMacro: {} at {}:{}:{}".format(macro, self.fileName, macro.line, macro.column))
+        raise RuntimeError(
+            "Invalid EvMacro: {} at {}:{}:{}".format(
+                macro, self.fileName, macro.line, macro.column
+            )
+        )
 
 class evAssembler(evListener):
     def __init__(self, fileName, commands=None, flags=None, works=None, sysflags=None):
@@ -515,7 +637,11 @@ class evAssembler(evListener):
             if name in self.commands:
                 evCmdType = EvCmdTypeWrapper(name, self.commands[name])
             else:
-                raise RuntimeError("Invalid EvCmd or EvMacro: {} at {}:{}:{}".format(name, self.fileName, ctx.start.line, ctx.start.column))
+                raise RuntimeError(
+                    "Invalid EvCmd or EvMacro: {} at {}:{}:{}".format(
+                        name, self.fileName, ctx.start.line, ctx.start.column
+                    )
+                )
         else:
             evCmdType = getattr(EvCmdType, name)
         args = []
@@ -533,19 +659,46 @@ class evAssembler(evListener):
             key = str(work.getChild(1)).upper()
             value = int(str(number.getChild(0)))
             if value > MAX_WORK:
-                raise RuntimeError("Invalid work definition: @{}. {} greater than max work value {} at {}:{}:{}".format(key, value, MAX_WORK, self.fileName, ctx.start.line, ctx.start.column))
+                raise RuntimeError(
+                    "Invalid work definition: @{}. {} greater than max work value {} at {}:{}:{}".format(
+                        key,
+                        value,
+                        MAX_WORK,
+                        self.fileName,
+                        ctx.start.line,
+                        ctx.start.column,
+                    )
+                )
             self.works[key] = value
         if flag is not None:
             key = str(flag.getChild(1)).upper()
             value = int(str(number.getChild(0)))
             if value > MAX_FLAG:
-                raise RuntimeError("Invalid flag definition: #{}. {} greater than max flag value {} at {}:{}:{}".format(key, value, MAX_FLAG, self.fileName, ctx.start.line, ctx.start.column))
+                raise RuntimeError(
+                    "Invalid flag definition: #{}. {} greater than max flag value {} at {}:{}:{}".format(
+                        key,
+                        value,
+                        MAX_FLAG,
+                        self.fileName,
+                        ctx.start.line,
+                        ctx.start.column,
+                    )
+                )
             self.flags[key] = value
         if sysflag is not None:
             key = str(sysflag.getChild(1)).upper()
             value = int(str(number.getChild(0)))
             if value > MAX_SYS_FLAG:
-                raise RuntimeError("Invalid SysFlag definition: ${}. {} greater than max sysflag value {} at {}:{}:{}".format(key, value, MAX_SYS_FLAG, self.fileName, ctx.start.line, ctx.start.column))
+                raise RuntimeError(
+                    "Invalid SysFlag definition: ${}. {} greater than max sysflag value {} at {}:{}:{}".format(
+                        key,
+                        value,
+                        MAX_SYS_FLAG,
+                        self.fileName,
+                        ctx.start.line,
+                        ctx.start.column,
+                    )
+                )
             self.sysflags[key] = value
         self.skipEntry = True
 
@@ -586,7 +739,11 @@ class evAssembler(evListener):
             elif argVal in self.works:
                 argVal = self.works[argVal]
             else:
-                raise RuntimeError("Unknown work: @{}. Cannot convert to number {}:{}:{}".format(argVal, self.fileName, ctx.start.line, ctx.start.column))
+                raise RuntimeError(
+                    "Unknown work: @{}. Cannot convert to number {}:{}:{}".format(
+                        argVal, self.fileName, ctx.start.line, ctx.start.column
+                    )
+                )
 
         if self.macro.isValid():
             self.macro.args.append(
@@ -598,7 +755,11 @@ class evAssembler(evListener):
             )
 
         if argVal > MAX_WORK:
-            print("[Warning] line {}:{}:{} Invalid work: @{}".format(self.fileName, ctx.start.line, ctx.start.column, argVal))
+            print(
+                "[Warning] line {}:{}:{} Invalid work: @{}".format(
+                    self.fileName, ctx.start.line, ctx.start.column, argVal
+                )
+            )
 
     def enterFlag(self, ctx: evParser.FlagContext):
         if self.skipEntry:
@@ -614,7 +775,11 @@ class evAssembler(evListener):
             elif argVal in self.flags:
                 argVal = self.flags[argVal]
             else:
-                raise RuntimeError("Unknown Flag: #{}. Cannot convert to number {}:{}:{}".format(argVal, self.fileName, ctx.start.line, ctx.start.column))
+                raise RuntimeError(
+                    "Unknown Flag: #{}. Cannot convert to number {}:{}:{}".format(
+                        argVal, self.fileName, ctx.start.line, ctx.start.column
+                    )
+                )
 
         if self.macro.isValid():
             self.macro.args.append(
@@ -626,7 +791,11 @@ class evAssembler(evListener):
             )
 
         if argVal > MAX_FLAG:
-            print("[Warning] line {}:{}:{} Invalid Flag: #{}".format(self.fileName, ctx.start.line, ctx.start.column, argVal))
+            print(
+                "[Warning] line {}:{}:{} Invalid Flag: #{}".format(
+                    self.fileName, ctx.start.line, ctx.start.column, argVal
+                )
+            )
 
     def enterSysFlag(self, ctx: evParser.SysFlagContext):
         if self.skipEntry:
@@ -642,7 +811,11 @@ class evAssembler(evListener):
             elif argVal in self.sysflags:
                 argVal = self.sysflags[argVal]
             else:
-                raise RuntimeError("Unknown SysFlag: ${}. Cannot convert to number {}:{}".format(argVal, ctx.start.line, ctx.start.column))
+                raise RuntimeError(
+                    "Unknown SysFlag: ${}. Cannot convert to number {}:{}".format(
+                        argVal, ctx.start.line, ctx.start.column
+                    )
+                )
 
         if self.macro.isValid():
             self.macro.args.append(

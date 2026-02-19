@@ -21,7 +21,7 @@ def decode_int(var):
 
 def decode_unity_yaml(sourceFile):
     result = str()
-    for lineNumber,line in enumerate( sourceFile.readlines() ): 
+    for lineNumber, line in enumerate(sourceFile.readlines()):
         if line.startswith('--- !u!'):          
             result += '--- ' + line.split(' ')[2] + '\n'   # removes the unnecessary tag, but keep file ID
         else:

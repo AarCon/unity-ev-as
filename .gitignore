@@ -146,4 +146,5 @@ test
 
 # Unity Assets
 Assets/*
-yaml/*
+*.meta
+AssetFolder/*
