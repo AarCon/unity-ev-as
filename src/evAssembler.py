@@ -329,7 +329,7 @@ class MacroAssembler:
             "indicators" : indicators
         }
 
-    def genLabelData(self, labelName, text, tags):
+    def genLabelData(self, labelName, text, tags, control_id: int = 0):
         TAG_COMMANDS = {
             "PLAYER",
             "RIVAL",
@@ -352,6 +352,16 @@ class MacroAssembler:
             # IMC_BG_NAME
         }
         styleInfo = msbt.StyleInfo.default()
+
+        if control_id != 0:
+            try:
+                styleInfo.controlID = int(control_id)
+            except Exception:
+                try:
+                    setattr(styleInfo, "controlID", int(control_id))
+                except Exception:
+                    pass
+
         attributeValueArray = msbt.LabelData.defaultAttributeValueArray()
         tagDataArray = []
         wordDataArray = []
@@ -379,7 +389,7 @@ class MacroAssembler:
                     0.0,
                     item,
                     calculateStrWidth(item)
-                ))                
+                ))
             if indicator == Indicator.ScrollPage:
                 wordDataArray.append(msbt.WordData(
                     msbt.WordDataPatternID.Event,
@@ -390,14 +400,15 @@ class MacroAssembler:
                     calculateStrWidth(item)
                 ))
             if indicator == Indicator.TagStart:
-                wordDataArray.append(msbt.WordData(
-                    msbt.WordDataPatternID.Str,
-                    msbt.MsgEventID.NONE,
-                    -1,
-                    0.0,
-                    item,
-                    calculateStrWidth(item)
-                ))
+                if len(item) > 0:
+                    wordDataArray.append(msbt.WordData(
+                        msbt.WordDataPatternID.Str,
+                        msbt.MsgEventID.NONE,
+                        -1,
+                        0.0,
+                        item,
+                        calculateStrWidth(item)
+                    ))
             if indicator == Indicator.TagEnd:
                 args = args = item.replace(" ", "").split(",")
 
@@ -597,7 +608,27 @@ class MacroAssembler:
         # if strVal in self.msg_keys:
         #    raise RuntimeError("EvMacro: {}. Label `{}` is already used at {}:{}:{}".format(macro.cmdType.name, strVal, self.fileName, text.line, text.column))
         macroCommands = []
-        labelData = self.genLabelData(label, text, tags)
+
+        # Determine if a trailing numeric control_id was provided as the last macro arg.
+        # We expect control_id to be passed as a numeric literal (parsed as Number -> EvArgType.Value)
+        control_id = 0
+        extra_args_for_cmd = list(macro.args[3:])
+        # Only treat a trailing numeric as control_id for the talk macros.
+        if macro.cmdType in (EvMacroType._MACRO_TALK_KEYWAIT, EvMacroType._MACRO_TALKMSG):
+            if len(extra_args_for_cmd) > 1:
+                last = extra_args_for_cmd[-1]
+                if last.argType == EvArgType.Value:
+                    # decode float-bit-encoded int back to numeric value
+                    try:
+                        control_val = struct.unpack('<f', struct.pack('<i', int(last.data)))[0]
+                        control_id = int(control_val)
+                        # remove control arg from the args that will be forwarded to the EvCmd
+                        extra_args_for_cmd = extra_args_for_cmd[:-1]
+                    except Exception:
+                        # leave control_id as 0 and forward args unchanged on failure
+                        control_id = 0
+
+        labelData = self.genLabelData(label, text, tags, control_id)
 
         if strVal not in strTbl:
             strTbl.append(strVal)
@@ -607,7 +638,8 @@ class MacroAssembler:
         # Create the main command and add it to the commands list
         argVal = strTbl.index(strVal)
         evCmdArgs = [EvArg(EvArgType.String, argVal, msgFile.line, msgFile.column)]
-        evCmdArgs.extend(macro.args[3:])
+        # forward any extra args (excluding control_id if it was consumed)
+        evCmdArgs.extend(extra_args_for_cmd)
         macroCommands.append(EvCmd(cmdType, evCmdArgs, macro.line, macro.column, self.fileName))
 
         commands.extend(macroCommands)
