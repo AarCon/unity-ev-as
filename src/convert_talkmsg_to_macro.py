@@ -30,6 +30,7 @@ SCRIPTS_DIR = os.path.join(ROOT, 'scripts')
 ASSETS_DIR = os.path.join(ROOT, 'Assets', 'format_msbt', 'en', 'english')
 
 from msbt import MsgEventID
+from ev_zone_code import get_zone_id
 
 # Commands that can be converted: map the ev command name to a target macro
 CONVERTIBLE_COMMANDS = {
@@ -172,7 +173,7 @@ def escape_for_macro(text: str) -> str:
     return text.replace("'", "\u2019")
 
 
-def convert_line(line: str) -> tuple[str, bool]:
+def convert_line(line: str, script_base: str | None = None) -> tuple[str, bool]:
     # Pattern: optional indent, command, ( 'file%label' [ , ... ] )
     cmd_group = '|'.join(re.escape(c) for c in CONVERTIBLE_COMMANDS.keys())
     pattern = re.compile(rf"^(\s*)({cmd_group})\s*\(\s*(['\"])([^'\"]+?)\3\s*((?:\s*,\s*[^)]*)?)\s*\)")
@@ -189,6 +190,14 @@ def convert_line(line: str) -> tuple[str, bool]:
         return line, False
 
     file_name, label_name = ref.split('%', 1)
+
+    # If the script's basename is a known zone code, override the message file name
+    if script_base:
+        try:
+            if get_zone_id(script_base) is not None:
+                file_name = script_base
+        except Exception:
+            pass
 
     ALLOWED_FILES = {
         "dp_scenario1",
@@ -214,13 +223,6 @@ def convert_line(line: str) -> tuple[str, bool]:
     safe_text = escape_for_macro(text)
     macro_name = CONVERTIBLE_COMMANDS.get(command, command)
 
-
-    # Emit expanded explicit macro call using the original command name
-    new_line = f"{indent}{macro_name}('{file_name}','{label_name}','{safe_text}'"
-    if trailing:
-        new_line += f", {trailing.strip()}"
-    new_line += ")"
-
     args = [f"'{file_name}'", f"'{label_name}'", f"'{safe_text}'"]
     trailing_str = trailing.strip()
     if trailing_str.startswith(','):
@@ -228,10 +230,11 @@ def convert_line(line: str) -> tuple[str, bool]:
     if trailing_str:
         args.append(trailing_str)
 
+    # Ensure 4th arg placeholder so controlID is always 5th if present
+    if len(args) == 3:
+        args.append('0')
+
     if control_id != 0:
-        if len(args) == 3:
-            # Only append this as it's a very optional arg
-            args.append('0')
         args.append(str(control_id))
 
     new_line = f"{indent}{macro_name}(" + ", ".join(args) + ")"
@@ -239,9 +242,11 @@ def convert_line(line: str) -> tuple[str, bool]:
     return new_line, True
 
 
-def process_file(path: str, dry_run: bool = False) -> tuple[int, int]:
+def process_file(path: str, dry_run: bool = False, use_ev_basename: bool = False) -> tuple[int, int]:
     with open(path, 'r', encoding='utf-8') as fh:
         lines = fh.readlines()
+
+    ev_basename = os.path.splitext(os.path.basename(path))[0] if use_ev_basename else None
 
     new_lines = []
     total = 0
@@ -251,7 +256,7 @@ def process_file(path: str, dry_run: bool = False) -> tuple[int, int]:
         has_cmd = any(stripped.startswith(cmd + '(') or stripped.startswith(cmd + ' (') for cmd in CONVERTIBLE_COMMANDS)
         if has_cmd and '%' in ln:
             total += 1
-            new, ok = convert_line(ln.rstrip('\n'))
+            new, ok = convert_line(ln.rstrip('\n'), script_base=ev_basename)
             if ok:
                 converted += 1
                 new_lines.append(new + '\n')
@@ -269,6 +274,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--dry-run', action='store_true')
     parser.add_argument('--file', type=str)
+    parser.add_argument('--use-ev-basename', action='store_true',
+                        help='When set, if the .ev filename (basename) is a known zone code, use it as the message file_name override.')
     args = parser.parse_args()
 
     files = [args.file] if args.file else sorted(glob.glob(os.path.join(SCRIPTS_DIR, '*.ev')))
@@ -280,7 +287,7 @@ def main():
     total_conv = 0
     total_matches = 0
     for p in files:
-        matches, conv = process_file(p, dry_run=args.dry_run)
+        matches, conv = process_file(p, dry_run=args.dry_run, use_ev_basename=args.use_ev_basename)
         if matches:
             print(f"{os.path.basename(p)}: {conv}/{matches} converted")
         total_matches += matches
