@@ -51,7 +51,7 @@ def process_file(path: str, dry_run: bool = False) -> Tuple[int,int]:
         lines = fh.readlines()
 
     ev_basename = os.path.splitext(os.path.basename(path))[0]
-    if get_zone_id(ev_basename) is None:
+    if get_zone_id(ev_basename) is None and ev_basename != "debug_scr":
         return 0, 0  # only operate when file basename is a known zone code
 
 
