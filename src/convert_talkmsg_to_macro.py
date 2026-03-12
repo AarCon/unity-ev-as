@@ -36,6 +36,7 @@ from ev_zone_code import get_zone_id
 CONVERTIBLE_COMMANDS = {
     '_TALKMSG': '_MACRO_TALKMSG',
     '_TALK_KEYWAIT': '_MACRO_TALK_KEYWAIT',
+    '_EASY_OBJ_MSG': '_MACRO_EASY_OBJ_MSG',
 }
 
 # Map msbt.MsgEventID values to escape sequences used in .ev text format
@@ -46,6 +47,8 @@ EVENT_ID_MAP = {
     MsgEventID.End.value: '',
 }
 
+un_macroable_labels = []
+non_existant_labels = []
 
 def parse_message_asset(filepath: str) -> Dict[str, str]:
     """Parse a Unity YAML message asset into a dict mapping labelName -> text.
@@ -101,6 +104,7 @@ def parse_message_asset(filepath: str) -> Dict[str, str]:
 
         if unsupported_group:
             # skip this label — contains unsupported groupID entries so don't convert
+            un_macroable_labels.append(name)
             continue
 
         text_parts = []
@@ -165,7 +169,11 @@ def get_message(file_name: str, label_name: str) -> str | None:
         print("Adding file to cache:", file_name)
         asset_path = os.path.join(ASSETS_DIR, f'english_{file_name}.asset')
         _message_cache[file_name] = parse_message_asset(asset_path)
-    return _message_cache[file_name].get(label_name)
+    message = _message_cache[file_name].get(label_name)
+    if message is None:
+        if label_name not in un_macroable_labels:
+            non_existant_labels.append(label_name)
+    return message
 
 
 def escape_for_macro(text: str) -> str:
@@ -231,7 +239,7 @@ def convert_line(line: str, script_base: str | None = None) -> tuple[str, bool]:
         args.append(trailing_str)
 
     # Ensure 4th arg placeholder so controlID is always 5th if present
-    if len(args) == 3:
+    if len(args) == 4:
         args.append('0')
 
     if control_id != 0:
@@ -295,6 +303,12 @@ def main():
         if conv:
             total_files_modified += 1
 
+    print("Un-macroable labels:")
+    for label in un_macroable_labels:
+        print(f"- {label}")
+    print("Non-existant labels:")
+    for label in non_existant_labels:
+        print(f"- {label}")
     print(f"Total: {total_conv}/{total_matches} across {total_files_modified} files")
     if args.dry_run:
         print('(dry run — no files written)')

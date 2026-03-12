@@ -19,7 +19,8 @@ from ev_zone_code import get_zone_id
 
 FILE_DIR = os.path.dirname(__file__)
 
-MACROS = ("_MACRO_TALKMSG", "_MACRO_TALK_KEYWAIT")
+MACROS = ("_MACRO_TALKMSG", "_MACRO_TALK_KEYWAIT", "_MACRO_EASY_OBJ_MSG")
+# Doesn't take into account semi-colon comments
 MACRO_RE = re.compile(r"^(\s*)(" + "|".join(re.escape(m) for m in MACROS) + r")\s*\(\s*(['\"])([^'\"]+?)\3(.*)\)\s*$")
 
 # Same allowed files as convert_talkmsg_to_macro.py
@@ -52,12 +53,13 @@ def process_file(path: str, dry_run: bool = False) -> Tuple[int,int]:
 
     ev_basename = os.path.splitext(os.path.basename(path))[0]
     if get_zone_id(ev_basename) is None and ev_basename != "debug_scr":
-        return 0, 0  # only operate when file basename is a known zone code
+        return 0, 0, 0  # only operate when file basename is a known zone code
 
 
     new_lines = []
     matches = 0
     replaced = 0
+    new_matches = 0
     for ln in lines:
         m = MACRO_RE.match(ln.rstrip("\n"))
         if not m:
@@ -65,6 +67,12 @@ def process_file(path: str, dry_run: bool = False) -> Tuple[int,int]:
             continue
         matches += 1
         indent, macro, quote, file_name, rest = m.group(1), m.group(2), m.group(3), m.group(4), m.group(5)
+
+        dialogue_file_name = f"dialogue_{ev_basename}"
+        if file_name == dialogue_file_name:
+            new_lines.append(ln)
+            continue
+        new_matches += 1
 
         # extract the label (expected to be the immediate next argument)
         label_match = re.match(r"\s*,\s*(['\"])([^'\"]+?)\1", rest)
@@ -84,12 +92,6 @@ def process_file(path: str, dry_run: bool = False) -> Tuple[int,int]:
             new_lines.append(ln)
             continue
 
-        if file_name == ev_basename:
-            new_lines.append(ln)
-            continue
-
-        dialogue_file_name = f"dialogue_{ev_basename}"
-
         # build replacement: keep same quote char
         new_line = f"{indent}{macro}({quote}{dialogue_file_name}{quote}{rest})\n"
         replaced += 1
@@ -99,7 +101,7 @@ def process_file(path: str, dry_run: bool = False) -> Tuple[int,int]:
         with open(path, "w", encoding="utf-8") as fh:
             fh.writelines(new_lines)
 
-    return matches, replaced
+    return matches, replaced, new_matches
 
 def main():
     p = argparse.ArgumentParser()
@@ -116,14 +118,18 @@ def main():
 
     total_matches = 0
     total_replaced = 0
+    total_new_matches = 0
     for f in files:
-        matches, replaced = process_file(f, dry_run=args.dry_run)
+        matches, replaced, new_matches = process_file(f, dry_run=args.dry_run)
         if matches:
             print(f"{os.path.basename(f)}: {replaced}/{matches} replaced")
+            print(f"\t{new_matches} new matches")
         total_matches += matches
         total_replaced += replaced
+        total_new_matches += new_matches
 
     print(f"Total replaced: {total_replaced}/{total_matches}")
+    print(f"Total new matches: {total_new_matches}")
     if args.dry_run:
         print("(dry run — no files written)")
 

@@ -614,7 +614,7 @@ class MacroAssembler:
         control_id = 0
         extra_args_for_cmd = list(macro.args[3:])
         # Only treat a trailing numeric as control_id for the talk macros.
-        if macro.cmdType in (EvMacroType._MACRO_TALK_KEYWAIT, EvMacroType._MACRO_TALKMSG):
+        if macro.cmdType in (EvMacroType._MACRO_TALK_KEYWAIT, EvMacroType._MACRO_TALKMSG, EvMacroType._MACRO_EASY_OBJ_MSG):
             if len(extra_args_for_cmd) > 1:
                 last = extra_args_for_cmd[-1]
                 if last.argType == EvArgType.Value:
