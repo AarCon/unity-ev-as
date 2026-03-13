@@ -21,8 +21,47 @@ DATA_FILES =  [
     'ss_net_net_btl',
     'ss_btl_tower_main',
     'ss_btl_tower_menu_ui_text',
-    'dialogue_debug_scr',
 ]
+
+NEW_DATA_FILES = [
+    "battle_room",
+    "bg_attr",
+    "common_scr",
+    "connect",
+    "con_reception",
+    "debug_scr",
+    "door",
+    "dummy",
+    "dummy_scr",
+    "fld_item",
+    "game_clear",
+    "global_defines",
+    "group",
+    "haitatu",
+    "hide_item",
+    "hiden",
+    "hyouka_scr",
+    "init_scr",
+    "kinomi",
+    "pair_scr",
+    "pc_ug",
+    "perap",
+    "pokesearcher",
+    "poruto_scr",
+    "safari",
+    "saisen",
+    "scr_seq_def",
+    "sodateya",
+    "support",
+    "trainer",
+    "tutor",
+    "tv",
+    "tv_interview",
+]
+
+# append new data files to DATA_FILES
+for new_file in NEW_DATA_FILES:
+    DATA_FILES.append(f"dialogue_{new_file}")
 
 _THIS_DIR = os.path.dirname(__file__)
 _ZONE_JSON = os.path.join(_THIS_DIR, "zone_codes.json")

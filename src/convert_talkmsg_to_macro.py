@@ -200,12 +200,12 @@ def convert_line(line: str, script_base: str | None = None) -> tuple[str, bool]:
     file_name, label_name = ref.split('%', 1)
 
     # If the script's basename is a known zone code, override the message file name
-    if script_base:
-        try:
-            if get_zone_id(script_base) is not None:
-                file_name = script_base
-        except Exception:
-            pass
+    # if script_base:
+    #     try:
+    #         if get_zone_id(script_base) is not None:
+    #             file_name = script_base
+    #     except Exception:
+    #         pass
 
     ALLOWED_FILES = {
         "dp_scenario1",
