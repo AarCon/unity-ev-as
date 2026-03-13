@@ -26,8 +26,50 @@ MAX_FLAG = 14999
 MAX_SYS_FLAG = 14999
 
 MACRO_NAME_CMD_TABLE = {
-    EvCmdType._POKE_TYPE_NAME : msbt.TagID.PokeType,
-    EvCmdType._NUMBER_NAME : msbt.TagID.Number
+    # EvCmdType._PLAYER_NAME : msbt.NameTagID.Default,
+    # EvCmdType._RIVAL_NAME : msbt.NameTagID.Default,
+    # EvCmdType._SUPPORT_NAME : msbt.NameTagID.Default,
+    # EvCmdType._POKEMON_NAME : msbt.NameTagID.Default,
+    # EvCmdType._ITEM_NAME : msbt.NameTagID.Default,
+    # EvCmdType._POCKET_NAME : msbt.NameTagID.Default,
+    # EvCmdType._ITEM_WAZA_NAME : msbt.NameTagID.Default,
+    # EvCmdType._WAZA_NAME : msbt.NameTagID.Default,
+    # EvCmdType._NUMBER_NAME : msbt.NameTagID.Default,
+    # EvCmdType._NUMBER_NAME_EX : msbt.NameTagID.Default,
+    # EvCmdType._NICK_NAME : msbt.NameTagID.Default,
+    # EvCmdType._POKETCH_NAME : msbt.NameTagID.Default,
+    # EvCmdType._TR_TYPE_NAME : msbt.NameTagID.Default,
+    # EvCmdType._MY_TR_TYPE_NAME : msbt.NameTagID.Default,
+    # EvCmdType._POKEMON_NAME_EXTRA : msbt.NameTagID.Default,
+    EvCmdType._FIRST_POKEMON_NAME : msbt.NameTagID.PokemonName,
+    EvCmdType._RIVAL_POKEMON_NAME : msbt.NameTagID.PokemonName,
+    # EvCmdType._SUPPORT_POKEMON_NAME : msbt.NameTagID.Default,
+    # EvCmdType._NUTS_NAME : msbt.NameTagID.Default,
+    # EvCmdType._SEIKAKU_NAME : msbt.NameTagID.Default,
+    # EvCmdType._GOODS_NAME : msbt.NameTagID.Default,
+    # EvCmdType._TRAP_NAME : msbt.NameTagID.Default,
+    # EvCmdType._TAMA_NAME : msbt.NameTagID.Default,
+    # EvCmdType._ZONE_NAME : msbt.NameTagID.Default,
+    # EvCmdType._UG_SHOP_ITEM_NAME : msbt.NameTagID.Default,
+    # EvCmdType._UG_SHOP_TRAP_NAME : msbt.NameTagID.Default,
+    # EvCmdType._TEMOTI_WAZA_NAME : msbt.NameTagID.Default,
+    # EvCmdType._RIBBON_NAME : msbt.NameTagID.Default,
+    # EvCmdType._NICK_NAME_PC : msbt.NameTagID.Default,
+    # EvCmdType._ACCE_NAME : msbt.NameTagID.Default,
+    # EvCmdType._MONUMENT_NAME : msbt.NameTagID.Default,
+    # EvCmdType._IMC_BG_NAME : msbt.NameTagID.Default,
+    # EvCmdType._SEAL_NAME : msbt.NameTagID.Default,
+    # EvCmdType._GROUP_NAME : msbt.NameTagID.Default,
+    # EvCmdType._GROUP_LEADER_NAME : msbt.NameTagID.Default,
+    # EvCmdType._SPEAKERS_NAME : msbt.NameTagID.Default,
+    # EvCmdType._TEMOTI_BOX_POKEMON_NAME : msbt.NameTagID.Default,
+    # EvCmdType._PARK_ITEM_NAME : msbt.NameTagID.Default,
+    # EvCmdType._UG_ITEM_NAME : msbt.NameTagID.Default,
+    # EvCmdType._CON_CATEGORY_NAME : msbt.NameTagID.Default,
+    # EvCmdType._CON_RANK_NAME : msbt.NameTagID.Default,
+    EvCmdType._POKE_TYPE_NAME : msbt.NameTagID.PokeType,
+    # EvCmdType._POFFIN_NAME : msbt.NameTagID.Default,
+    # EvCmdType._DRESS_NAME : msbt.NameTagID.Default,
 }
 
 @dataclass
@@ -287,7 +329,7 @@ class MacroAssembler:
             "indicators" : indicators
         }
 
-    def genLabelData(self, labelName, text, tags):
+    def genLabelData(self, labelName, text, tags, control_id: int = 0):
         TAG_COMMANDS = {
             "PLAYER",
             "RIVAL",
@@ -310,6 +352,16 @@ class MacroAssembler:
             # IMC_BG_NAME
         }
         styleInfo = msbt.StyleInfo.default()
+
+        if control_id != 0:
+            try:
+                styleInfo.controlID = int(control_id)
+            except Exception:
+                try:
+                    setattr(styleInfo, "controlID", int(control_id))
+                except Exception:
+                    pass
+
         attributeValueArray = msbt.LabelData.defaultAttributeValueArray()
         tagDataArray = []
         wordDataArray = []
@@ -337,7 +389,7 @@ class MacroAssembler:
                     0.0,
                     item,
                     calculateStrWidth(item)
-                ))                
+                ))
             if indicator == Indicator.ScrollPage:
                 wordDataArray.append(msbt.WordData(
                     msbt.WordDataPatternID.Event,
@@ -348,23 +400,46 @@ class MacroAssembler:
                     calculateStrWidth(item)
                 ))
             if indicator == Indicator.TagStart:
-                wordDataArray.append(msbt.WordData(
-                    msbt.WordDataPatternID.Str,
-                    msbt.MsgEventID.NONE,
-                    -1,
-                    0.0,
-                    item,
-                    calculateStrWidth(item)
-                ))
+                if len(item) > 0:
+                    wordDataArray.append(msbt.WordData(
+                        msbt.WordDataPatternID.Str,
+                        msbt.MsgEventID.NONE,
+                        -1,
+                        0.0,
+                        item,
+                        calculateStrWidth(item)
+                    ))
             if indicator == Indicator.TagEnd:
-                if not item.isdigit():
+                args = args = item.replace(" ", "").split(",")
+
+                if not args[0].isdigit():
                     # TODO: Raise exception
                     pass
                 # Just the tag index
-                tagIndex = int(item)
+                tagIndex = int(args[0])
                 # This tag index seems to be the index into the
                 # tagData array whereas the other tagIndex is the 
                 # 
+                if len(args) > 1:
+                    groupID = int(args[1])
+                else:
+                    groupID = msbt.GroupTagID.Name
+
+                if len(args) > 2:
+                    tagID = int(args[2])
+                else:
+                    tagID = msbt.NameTagID.Default
+
+                if len(args) > 3:
+                    tagParam = int(args[3])
+                else:
+                    tagParam = 0
+
+                if groupID == msbt.GroupTagID.Digit:
+                    tagPatternID = msbt.TagPatternID.Digit
+                else:
+                    tagPatternID = msbt.TagPatternID.Word
+
                 wordDataArray.append(msbt.WordData(
                     msbt.WordDataPatternID.WordTag,
                     msbt.MsgEventID.NONE,
@@ -373,18 +448,16 @@ class MacroAssembler:
                     "",
                     -1.0
                 ))
-                tagID = msbt.TagID.Default
-                if tagIndex in tags:
-                    tagID = tags[tagIndex]
+
                 tagDataArray.append(msbt.TagData(
                     tagIndex,
-                    msbt.GroupTagID.Name,
+                    groupID,
                     tagID,
-                    msbt.TagPatternID.Word,
+                    tagPatternID,
                     0,
-                    0,
+                    tagParam,
                     [],
-                    msbt.ForceGrmID.NONE
+                    msbt.ForceGrmTagID.NONE
                 ))
             if indicator == Indicator.End:
                 wordDataArray.append(msbt.WordData(
@@ -535,7 +608,27 @@ class MacroAssembler:
         # if strVal in self.msg_keys:
         #    raise RuntimeError("EvMacro: {}. Label `{}` is already used at {}:{}:{}".format(macro.cmdType.name, strVal, self.fileName, text.line, text.column))
         macroCommands = []
-        labelData = self.genLabelData(label, text, tags)
+
+        # Determine if a trailing numeric control_id was provided as the last macro arg.
+        # We expect control_id to be passed as a numeric literal (parsed as Number -> EvArgType.Value)
+        control_id = 0
+        extra_args_for_cmd = list(macro.args[3:])
+        # Only treat a trailing numeric as control_id for the talk macros.
+        if macro.cmdType in (EvMacroType._MACRO_TALK_KEYWAIT, EvMacroType._MACRO_TALKMSG, EvMacroType._MACRO_EASY_OBJ_MSG):
+            if len(extra_args_for_cmd) > 1:
+                last = extra_args_for_cmd[-1]
+                if last.argType == EvArgType.Value:
+                    # decode float-bit-encoded int back to numeric value
+                    try:
+                        control_val = struct.unpack('<f', struct.pack('<i', int(last.data)))[0]
+                        control_id = int(control_val)
+                        # remove control arg from the args that will be forwarded to the EvCmd
+                        extra_args_for_cmd = extra_args_for_cmd[:-1]
+                    except Exception:
+                        # leave control_id as 0 and forward args unchanged on failure
+                        control_id = 0
+
+        labelData = self.genLabelData(label, text, tags, control_id)
 
         if strVal not in strTbl:
             strTbl.append(strVal)
@@ -545,7 +638,8 @@ class MacroAssembler:
         # Create the main command and add it to the commands list
         argVal = strTbl.index(strVal)
         evCmdArgs = [EvArg(EvArgType.String, argVal, msgFile.line, msgFile.column)]
-        evCmdArgs.extend(macro.args[3:])
+        # forward any extra args (excluding control_id if it was consumed)
+        evCmdArgs.extend(extra_args_for_cmd)
         macroCommands.append(EvCmd(cmdType, evCmdArgs, macro.line, macro.column, self.fileName))
 
         commands.extend(macroCommands)

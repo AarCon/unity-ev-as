@@ -36,8 +36,8 @@ from msbt import (
     MsgEventID,
     GroupTagID,
     TagPatternID,
-    ForceGrmID,
-    TagID,
+    ForceGrmTagID,
+    NameTagID,
 )
 from validator import Validator
 from ev_parse import decode_unity_yaml
@@ -269,7 +269,7 @@ def updateLabelDatas(path, lang, labelDatas, debug=False):
         print(f"[Timing] updateLabelDatas average per file: {avg_time:.3f}s")
 
 
-def updateYamlLabels(path, lang, labelDatas, debug=False):
+def updateYamlLabels(path, lang, labelDatas, timing=False):
     print("Updating message files using Macro information.")
 
     # Load label hash cache
@@ -297,7 +297,7 @@ def updateYamlLabels(path, lang, labelDatas, debug=False):
             label_hash_cache[current_cache_key][data_file] = new_hash
 
     if not changed_files:
-        if debug:
+        if timing:
             print(
                 f"[Timing] updateYamlLabels: No changes detected in any files for {lang}"
             )
@@ -339,7 +339,7 @@ def updateYamlLabels(path, lang, labelDatas, debug=False):
             ]
         t1 = time.time()
         load_times.append(t1 - t0)
-        if debug:
+        if timing:
             print(f"[Timing] updateYamlLabels load {tree['m_Name']}: {t1-t0:.3f}s")
 
     # Update only the changed files
@@ -351,14 +351,15 @@ def updateYamlLabels(path, lang, labelDatas, debug=False):
         unlocalized_key = splitMsg[1]
         msbt_file: MsbtFile = msbt_files[dataFile]
         found_entry = False
+        if not isinstance(labelData, dict):
+            labelData = asdict(labelData)
+
         for i, iLabelData in enumerate(msbt_file["labelDataArray"]):
             ## PyYaml cannot unpack dataclasses or classes at all (at least not easily)
             ## In order to get around this we need to convert everything to a dict
             ## So this checks if it's a macro label (not a dict) and changes it into a dict
             if not isinstance(iLabelData, dict):
                 iLabelData = asdict(iLabelData)
-            if not isinstance(labelData, dict):
-                labelData = asdict(labelData)
             if iLabelData["labelName"] == labelData["labelName"]:
                 labelData["labelIndex"] = iLabelData["labelIndex"]
                 labelData["arrayIndex"] = iLabelData["arrayIndex"]
@@ -367,7 +368,8 @@ def updateYamlLabels(path, lang, labelDatas, debug=False):
                 break
         if found_entry:
             continue
-        arrayIndex = msbt_file["labelDataArray"][-1]["arrayIndex"] + 1
+        labels = msbt_file.get("labelDataArray", [])
+        arrayIndex = labels[-1]["arrayIndex"] + 1 if labels else 0
         labelData["labelIndex"] = arrayIndex
         labelData["arrayIndex"] = arrayIndex
         msbt_file["labelDataArray"].append(labelData)
@@ -382,7 +384,7 @@ def updateYamlLabels(path, lang, labelDatas, debug=False):
             for ld in msbt_file["labelDataArray"]
         ]
         if current_label_array == original_label_arrays[data_file]:
-            if debug:
+            if timing:
                 print(
                     f"[Timing] updateYamlLabels skip {msbt_file['m_Name']}: no changes detected"
                 )
@@ -407,14 +409,14 @@ def updateYamlLabels(path, lang, labelDatas, debug=False):
             ofobj.writelines(final_bundle)
         t1 = time.time()
         write_times.append(t1 - t0)
-        if debug:
+        if timing:
             print(
                 f"[Timing] updateYamlLabels write {msbt_file['m_Name']}: {t1-t0:.3f}s"
             )
-    if load_times and debug:
+    if load_times and timing:
         avg_load_time = sum(load_times) / len(load_times)
         print(f"[Timing] updateYamlLabels average per file load: {avg_load_time:.3f}s")
-    if write_times and debug:
+    if write_times and timing:
         avg_write_time = sum(write_times) / len(write_times)
         print(
             f"[Timing] updateYamlLabels average per file write: {avg_write_time:.3f}s"
@@ -498,7 +500,7 @@ def loadCoreLabels(ifpath, ignoreNames):
     return linkerLabels
 
 
-def loadYamlCoreLabels(ifpath, ignoreNames, debug=False):
+def loadYamlCoreLabels(ifpath, ignoreNames, timing=False):
     linkerLabels = []
     file_times = []
     for filename in os.listdir(ifpath):
@@ -525,17 +527,17 @@ def loadYamlCoreLabels(ifpath, ignoreNames, debug=False):
                 linkerLabels.append(label)
         t1 = time.time()
         file_times.append(t1 - t0)
-        if debug:
+        if timing:
             print(f"[Timing] loadYamlCoreLabels {file_path}: {t1-t0:.3f}s")
-    if len(file_times) > 0 and debug:
+    if len(file_times) > 0 and timing:
         avg_time = sum(file_times) / len(file_times)
         print(f"[Timing] loadYamlCoreLabels average per file: {avg_time:.3f}s")
-    elif debug:
+    elif timing:
         print("[Timing] loadYamlCoreLabels: No .asset files processed.")
     return linkerLabels
 
 
-def assemble_all(ifdir, mode, debug=False, override=False):
+def assemble_all(ifdir, mode, debug=False, timing=False, override=False):
     start_time = time.time()
     scripts = {}
     labelDatas = {}
@@ -551,7 +553,7 @@ def assemble_all(ifdir, mode, debug=False, override=False):
         works = assembler.works
         sysflags = assembler.sysflags
     t1 = time.time()
-    if debug:
+    if timing:
         print(f"[Timing] load_definitions: {t1-t0:.3f}s")
 
     commands = {}
@@ -567,7 +569,7 @@ def assemble_all(ifdir, mode, debug=False, override=False):
                         "Unable to load commands.json, missing either Id or Name key. Defaulting to known commands"
                     )
     t2 = time.time()
-    if debug:
+    if timing:
         print(f"[Timing] load commands.json: {t2-t1:.3f}s")
 
     linkerLabels = []
@@ -618,16 +620,16 @@ def assemble_all(ifdir, mode, debug=False, override=False):
         labelDatas.update(assembler.macroAssembler.labelDatas)
         file_end = time.time()
         file_times.append(file_end - file_start)
-        if debug:
+        if timing:
             print(f"[Timing] {ifpath}: {file_end-file_start:.3f}s")
     if len(ignoreList) == 0:
         ## I'm just going to use this to say if a file has any changes
         ## I know it's not what the variable name means, fight me.
         return
-    if debug:
+    if timing:
         print(ignoreList)
     t3 = time.time()
-    if debug:
+    if timing:
         print(f"[Timing] parse .ev files: {t3-t2:.3f}s")
         if file_times:
             avg_time = sum(file_times) / len(file_times)
@@ -638,7 +640,7 @@ def assemble_all(ifdir, mode, debug=False, override=False):
     if mode == "bundle":
         linkerLabels.extend(loadCoreLabels("Dpr/ev_script", ignoreList))
         t4 = time.time()
-        if debug:
+        if timing:
             print(f"[Timing] loadCoreLabels: {t4-t3:.3f}s")
         for toConvert in toConvertList:
             unityTree = convertToUnity(
@@ -646,15 +648,15 @@ def assemble_all(ifdir, mode, debug=False, override=False):
             )
             scripts[toConvert[3]] = unityTree
         t5 = time.time()
-        if debug:
+        if timing:
             print(f"[Timing] convertToUnity: {t5-t4:.3f}s")
         repackUnityAll("Dpr/ev_script", "bin/ev_script", scripts)
         t6 = time.time()
-        if debug:
+        if timing:
             print(f"[Timing] repackUnityAll: {t6-t5:.3f}s")
         updateLabelDatas("AssetFolder/english_Export", "english", labelDatas)
         t7 = time.time()
-        if debug:
+        if timing:
             print(f"[Timing] updateLabelDatas: {t7-t6:.3f}s")
     elif mode == "yaml":
         # Do the yaml thing
@@ -667,17 +669,17 @@ def assemble_all(ifdir, mode, debug=False, override=False):
         CoreDumper.add_multi_representer(MsgEventID, int_enum_representer)
         CoreDumper.add_multi_representer(GroupTagID, int_enum_representer)
         CoreDumper.add_multi_representer(TagPatternID, int_enum_representer)
-        CoreDumper.add_multi_representer(ForceGrmID, int_enum_representer)
-        CoreDumper.add_multi_representer(TagID, int_enum_representer)
+        CoreDumper.add_multi_representer(ForceGrmTagID, int_enum_representer)
+        CoreDumper.add_multi_representer(NameTagID, int_enum_representer)
         CoreDumper.add_representer(type(None), none_representer)
         CoreDumper.add_multi_representer(LabelData, dataclass_representer)
         CoreDumper.add_multi_representer(MsbtFile, dataclass_representer)
         CoreDumper.add_multi_representer(WordData, dataclass_representer)
 
         print("Running in YAML mode")
-        linkerLabels.extend(loadYamlCoreLabels(ifdir, ignoreList, debug=debug))
+        linkerLabels.extend(loadYamlCoreLabels(ifdir, ignoreList, timing=timing))
         t4 = time.time()
-        if debug:
+        if timing:
             print(f"[Timing] loadYamlCoreLabels: {t4-t3:.3f}s")
         for toConvert in toConvertList:
             unityTree = convertToUnity(
@@ -685,7 +687,7 @@ def assemble_all(ifdir, mode, debug=False, override=False):
             )
             scripts[toConvert[3]] = unityTree
         t5 = time.time()
-        if debug:
+        if timing:
             print(f"[Timing] convertToUnity: {t5-t4:.3f}s")
         for filename in os.listdir(ifdir):
             file_path = os.path.join(ifdir, filename)
@@ -724,25 +726,25 @@ def assemble_all(ifdir, mode, debug=False, override=False):
                 final_bundle = yaml_header_string + new_bundle[4:]
                 outputobj.writelines(final_bundle)
             file_write_end = time.time()
-            if debug:
+            if timing:
                 print(
                     f"[Timing] yaml file writing {file_path}: {file_write_end-file_write_start:.3f}s"
                 )
         t6 = time.time()
-        if debug:
+        if timing:
             print(f"[Timing] yaml file writing total: {t6-t5:.3f}s")
         updateYamlLabels(
-            "Assets/format_msbt/en/english", "english", labelDatas, debug=debug
+            "Assets/format_msbt/en/english", "english", labelDatas, timing=timing
         )
         t7 = time.time()
-        if debug:
+        if timing:
             print(f"[Timing] updateYamlLabels: {t7-t6:.3f}s")
     else:
         raise ValueError(f"'{mode}' is an Invalid mode. Must be 'yaml' or 'bundle'.")
 
     generate_file_hash_cache("scripts")
     end_time = time.time()
-    if debug:
+    if timing:
         print(f"[Timing] Total assemble_all: {end_time-start_time:.3f}s")
 
 
@@ -760,7 +762,7 @@ def main():
         help="Mode of operation: 'bundle', 'yaml', or 'generate-cache'",
     )
     parser.add_argument(
-        "--debug", dest="debug", action="store_true", help="Enable timing debug output"
+        "--timing", dest="timing", action="store_true", help="Enable timing debug output"
     )
     parser.add_argument(# This literally just shows some warnings that don't amount to anything
         "--override_safety",
@@ -775,7 +777,7 @@ def main():
     if vargs.mode == "generate-cache":
         generate_file_hash_cache(vargs.ifpath)
     else:
-        assemble_all(vargs.ifpath, vargs.mode, debug=vargs.debug, override=vargs.override_safety)
+        assemble_all(vargs.ifpath, vargs.mode, timing=vargs.timing, override=vargs.override_safety)
         print("Assembly finished")
 
 
