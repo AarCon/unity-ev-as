@@ -267,6 +267,12 @@ class MacroAssembler:
     def __init__(self, fileName):
         self.fileName = fileName
         self.labelDatas = {}
+        # labelSources maps message label key -> dict with original text and location
+        # e.g. { strVal: { 'text': <text string>, 'file': <file>, 'line': <int>, 'column': <int> } }
+        self.labelSources = {}
+        # duplicateLabels maps message label key -> list of occurrences (including originals and repeats)
+        # each occurrence is a dict like the entries stored in labelSources
+        self.duplicateLabels = {}
     
     def parseText(self, origText):
         origText = origText.replace('\r\n', '\\n')
@@ -630,10 +636,65 @@ class MacroAssembler:
 
         labelData = self.genLabelData(label, text, tags, control_id)
 
+        # If this label has been defined before, record the duplicate and
+        # raise an error if the text differs from the original definition.
+        if strVal in self.labelDatas:
+            prev = self.labelSources.get(strVal)
+            current_occ = {
+                'text': text.data,
+                'file': self.fileName,
+                'line': macro.line,
+                'column': macro.column,
+            }
+            # initialize duplicates list with previous occurrence if first duplicate
+            if strVal not in self.duplicateLabels:
+                if prev:
+                    self.duplicateLabels[strVal] = [prev, current_occ]
+                else:
+                    self.duplicateLabels[strVal] = [current_occ]
+            else:
+                self.duplicateLabels[strVal].append(current_occ)
+
+            # If the text differs from the original definition, raise an error
+            if prev and prev.get('text') != text.data:
+                # Build left prefixes for both occurrences so the quoted
+                # message text can be padded to start in the same column.
+                left1 = "  {file}:{line}:{col}:".format(
+                    file=prev.get('file', '<unknown>'),
+                    line=prev.get('line', 0),
+                    col=prev.get('column', 0)
+                )
+                left2 = "  {file}:{line}:{col}:".format(
+                    file=self.fileName,
+                    line=macro.line,
+                    col=macro.column
+                )
+                max_left = max(len(left1), len(left2))
+                # Add one extra space after the longest prefix before the quote
+                pad1 = ' ' * (max_left - len(left1) + 1)
+                pad2 = ' ' * (max_left - len(left2) + 1)
+                line1 = left1 + pad1 + "'" + prev.get('text', '') + "'"
+                line2 = left2 + pad2 + "'" + text.data + "'"
+                raise RuntimeError(
+                    "Conflicting definitions for message label '{0}'\n{1}\n{2}".format(
+                        strVal,
+                        line1,
+                        line2,
+                    )
+                )
+
         if strVal not in strTbl:
             strTbl.append(strVal)
         # self.msg_keys.append(strVal)
         self.labelDatas[strVal] = labelData
+        # record the source text/location for this message label (first seen)
+        if strVal not in self.labelSources:
+            self.labelSources[strVal] = {
+                'text': text.data,
+                'file': self.fileName,
+                'line': macro.line,
+                'column': macro.column,
+            }
         
         # Create the main command and add it to the commands list
         argVal = strTbl.index(strVal)
