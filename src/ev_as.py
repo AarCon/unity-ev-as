@@ -12,7 +12,7 @@ import hashlib
 import time
 
 import UnityPy
-from gdatamanger import DATA_FILES
+from gdatamanger import DATA_FILES, GDataManager
 import marshmallow
 
 from antlr4 import *
@@ -49,7 +49,7 @@ LABEL_CACHE_FILE = "label_hash_cache.json"
 
 def jsonDumpUnity(tree, ofpath):
     with open(ofpath, "w") as ofobj:
-        json.dump(tree, ofobj, indent=4)
+        json.dump(tree, ofobj, indent=4, ensure_ascii=False)
 
 
 def int_enum_representer(dumper, data):
@@ -537,7 +537,9 @@ def loadYamlCoreLabels(ifpath, ignoreNames, timing=False):
     return linkerLabels
 
 
-def assemble_all(ifdir, mode, debug=False, timing=False, override=False):
+def assemble_all(ifdir, mode, language="english", debug=False, timing=False, override=False):
+    print("Using ev_as with language:", language)
+    GDataManager.setLanguage(language)
     start_time = time.time()
     scripts = {}
     labelDatas = {}
@@ -638,6 +640,17 @@ def assemble_all(ifdir, mode, debug=False, timing=False, override=False):
             print("[Timing] No .ev files processed.")
 
     if mode == "bundle":
+        language_export_path = f"AssetFolder/{language}_Export"
+        if not os.path.exists(language_export_path):
+            print("Error: Language export path does not exist.")
+            print("Available languages:")
+            if os.path.exists("AssetFolder"):
+                for folder in os.listdir("AssetFolder"):
+                    if folder.endswith("_Export"):
+                        language_name = folder.replace("_Export", "")
+                        print(f"    - {language_name}")
+            return
+
         linkerLabels.extend(loadCoreLabels("Dpr/ev_script", ignoreList))
         t4 = time.time()
         if timing:
@@ -654,7 +667,7 @@ def assemble_all(ifdir, mode, debug=False, timing=False, override=False):
         t6 = time.time()
         if timing:
             print(f"[Timing] repackUnityAll: {t6-t5:.3f}s")
-        updateLabelDatas("AssetFolder/english_Export", "english", labelDatas)
+        updateLabelDatas(f"AssetFolder/{language}_Export", language, labelDatas)
         t7 = time.time()
         if timing:
             print(f"[Timing] updateLabelDatas: {t7-t6:.3f}s")
@@ -678,6 +691,18 @@ def assemble_all(ifdir, mode, debug=False, timing=False, override=False):
 
         print("Running in YAML mode")
         linkerLabels.extend(loadYamlCoreLabels(ifdir, ignoreList, timing=timing))
+        language_export_path = f"Assets/format_msbt/{language[:2]}/{language}"
+        print(language_export_path)
+        if not os.path.exists(language_export_path):
+            print("Error: Language export path does not exist.")
+            print("Available languages:")
+            assetFolder = f"Assets/format_msbt"
+            if os.path.exists(assetFolder):
+                for folder in os.listdir(assetFolder):
+                    for language_folder in os.listdir(folder):
+                        print(f"    - {language_folder}")
+            return
+
         t4 = time.time()
         if timing:
             print(f"[Timing] loadYamlCoreLabels: {t4-t3:.3f}s")
@@ -734,7 +759,7 @@ def assemble_all(ifdir, mode, debug=False, timing=False, override=False):
         if timing:
             print(f"[Timing] yaml file writing total: {t6-t5:.3f}s")
         updateYamlLabels(
-            "Assets/format_msbt/en/english", "english", labelDatas, timing=timing
+            f"Assets/format_msbt/{language[:2]}/{language}", language, labelDatas, timing=timing
         )
         t7 = time.time()
         if timing:
@@ -770,6 +795,15 @@ def main():
         action="store_true",
         help="WARNING: Will increase the speed of operation at the expense of all safety measures. Use with Extreme Caution"
     )
+    parser.add_argument(
+        "-l",
+        "--language",
+        dest="language",
+        action="store",
+        default="english",
+        choices=["english", "spanish", "french", "german", "italian", "jpn", "jpn_kanji", "korean", "simp_chinese", "trad_chinese"],
+        help="Language to user for dialog files (default: english)"
+    )
     # parser.add_argument("-s", "--script", dest='script', action='store', required=True)
 
     vargs = parser.parse_args()
@@ -777,7 +811,7 @@ def main():
     if vargs.mode == "generate-cache":
         generate_file_hash_cache(vargs.ifpath)
     else:
-        assemble_all(vargs.ifpath, vargs.mode, timing=vargs.timing, override=vargs.override_safety)
+        assemble_all(vargs.ifpath, vargs.mode, vargs.language, timing=vargs.timing, override=vargs.override_safety)
         print("Assembly finished")
 
 

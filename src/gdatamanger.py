@@ -82,6 +82,15 @@ for z in _zone_list:
 class GDataManager:
     SCENARIO_MSGS = None
     DISABLED_MSGS = False
+    CURRENT_LANGUAGE = "english"  # Can now be changed through an argument in the command
+
+    @classmethod
+    def setLanguage(cls, language):
+        """Set the current language for message loading"""
+        cls.CURRENT_LANGUAGE = language
+        # Need to clear cache when switching languages or it will get the wrong files
+        cls.SCENARIO_MSGS = None
+        cls.DISABLED_MSGS = False
 
     @classmethod
     def getMoveById(cls, moveId):
@@ -97,7 +106,8 @@ class GDataManager:
 
             try:
                 for dateFile in DATA_FILES:
-                    ifpath = "AssetFolder/english_Export/english_{}.json".format(dateFile)
+                    # Use the current language instead of hardcoded english
+                    ifpath = f"AssetFolder/{cls.CURRENT_LANGUAGE}_Export/{cls.CURRENT_LANGUAGE}_{dateFile}.json"
                     array = []
                     with open(ifpath, "r", encoding='utf-8') as ifobj:
                         data = json.load(ifobj)
@@ -107,7 +117,7 @@ class GDataManager:
                     scenario_msgs[dateFile] = array
             except FileNotFoundError as exc:
                 cls.DISABLED_MSGS = True
-                print("Warning: english files not found. Message validation will not be enabled: {}".format(exc))
+                print(f"Warning: {cls.CURRENT_LANGUAGE} files not found. Message validation will not be enabled: {exc}")
                 return None
             cls.SCENARIO_MSGS = scenario_msgs
         return cls.SCENARIO_MSGS    
