@@ -748,6 +748,81 @@ def assemble_all(ifdir, mode, debug=False, timing=False, override=False):
         print(f"[Timing] Total assemble_all: {end_time-start_time:.3f}s")
 
 
+def build_flow_map_for_scripts(scripts_dir="scripts", output_path=None, markdown_output_path=None):
+    validator = Validator()
+    all_scripts = {}
+    script_files = []
+
+    flags = {}
+    works = {}
+    sysflags = {}
+    if os.path.exists("scripts/global_defines.ev"):
+        assembler = load_definitions()
+        flags = assembler.flags
+        works = assembler.works
+        sysflags = assembler.sysflags
+
+    commands = {}
+    if os.path.exists("commands.json"):
+        with open("commands.json", "r") as ofobj:
+            data = json.load(ofobj)
+            for entry in data:
+                try:
+                    commands[entry["Name"]] = entry["Id"]
+                except KeyError:
+                    print(
+                        "Unable to load commands.json, missing either Id or Name key. Defaulting to known commands"
+                    )
+
+    for ifpath in glob.glob(os.path.join(scripts_dir, "*.ev")):
+        basename = os.path.basename(ifpath)
+        basename = os.path.splitext(basename)[0]
+        if basename == "global_defines":
+            continue
+
+        input_stream = FileStream(ifpath, encoding="utf-8")
+        lexer = evLexer(input_stream)
+        stream = CommonTokenStream(lexer)
+        parser = evParser(stream)
+        tree = parser.prog()
+
+        assembler = evAssembler(
+            ifpath,
+            commands=copy(commands),
+            flags=copy(flags),
+            works=copy(works),
+            sysflags=copy(sysflags),
+        )
+        walker = ParseTreeWalker()
+        walker.walk(assembler, tree)
+
+        all_scripts.update(assembler.scripts)
+        script_files.append((basename, assembler.scripts, assembler.strTbl))
+
+    flow_map = {}
+    for basename, scripts, str_tbl in script_files:
+        print("Building flow map for {}".format(basename))
+        flow_map[basename] = validator.build_script_flow_map(
+            scripts,
+            str_tbl,
+            known_scripts=list(all_scripts.keys()),
+            start_labels=list(scripts.keys()),
+        )
+
+        if output_path is not None:
+            with open(output_path, "w", encoding="utf-8") as ofobj:
+                json.dump(flow_map, ofobj, indent=4)
+            print(f"Flow map updated for {basename}: {output_path}")
+
+        if markdown_output_path is not None:
+            markdown_path = markdown_output_path.format(script=basename)
+            with open(markdown_path, "w", encoding="utf-8") as ofobj:
+                ofobj.write(validator.build_mermaid_markdown(flow_map[basename], title=f"{basename} flow"))
+            print(f"Mermaid flow chart written for {basename}: {markdown_path}")
+
+    return flow_map
+
+
 def main():
     parser = ArgumentParser()
     parser.add_argument(
@@ -770,6 +845,26 @@ def main():
         action="store_true",
         help="WARNING: Will increase the speed of operation at the expense of all safety measures. Use with Extreme Caution"
     )
+    parser.add_argument(
+        "--flow-map",
+        dest="flow_map",
+        action="store_true",
+        help="Build a BFS-based flow map for the parsed scripts and save it to bin/script_flow_map.json",
+    )
+    parser.add_argument(
+        "--flow-map-out",
+        dest="flow_map_out",
+        action="store",
+        default="bin/script_flow_map.json",
+        help="Destination for the generated flow map JSON",
+    )
+    parser.add_argument(
+        "--flow-map-md",
+        dest="flow_map_md",
+        action="store",
+        default=None,
+        help="Optional destination template for Mermaid Markdown flow charts (use {script} for the script name)",
+    )
     # parser.add_argument("-s", "--script", dest='script', action='store', required=True)
 
     vargs = parser.parse_args()
@@ -777,6 +872,14 @@ def main():
     if vargs.mode == "generate-cache":
         generate_file_hash_cache(vargs.ifpath)
     else:
+        if vargs.flow_map:
+            os.makedirs(os.path.dirname(vargs.flow_map_out) or ".", exist_ok=True)
+            build_flow_map_for_scripts(
+                "scripts",
+                output_path=vargs.flow_map_out,
+                markdown_output_path=vargs.flow_map_md,
+            )
+            print(f"Flow map written to {vargs.flow_map_out}")
         assemble_all(vargs.ifpath, vargs.mode, timing=vargs.timing, override=vargs.override_safety)
         print("Assembly finished")
 
