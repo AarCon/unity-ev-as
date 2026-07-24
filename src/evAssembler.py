@@ -375,6 +375,7 @@ class MacroAssembler:
         textTree = self.parseText(text.data)
         items = textTree["items"]
         indicators = textTree["indicators"]
+        active_size_scales = []
         for pos in items:
             item: str = items[pos]
             indicator = indicators[pos]
@@ -477,14 +478,13 @@ class MacroAssembler:
             if isinstance(indicator, str) and indicator.startswith("HtmlTagStart:"):
                 tag = indicator[len("HtmlTagStart:"):]
                 tag_name = tag.strip("<>").split()[0]
-                adjusted_word_width = None
-                if tag_name.lower() == "size":
-                    # Extract the size value from the tag
-                    size_match = re.search(r'size\s*=\s*"(\d+)"', tag, re.IGNORECASE)
+                if tag_name.lower().startswith("size"):
+                    size_match = re.search(r'size\s*=\s*(\d+)', tag, re.IGNORECASE)
                     if size_match:
                         size_value = int(size_match.group(1))
-                        # Adjust the word width based on the size value
-                        adjusted_word_width = calculateStrWidth(item) * (size_value / 100.0)
+                        active_size_scales.append(size_value / 100.0)
+                    else:
+                        active_size_scales.append(1.0)
 
                 # Determine patternId based on tag_name
                 if tag_name.lower().startswith("color"):
@@ -502,9 +502,10 @@ class MacroAssembler:
                         -1,
                         0,
                         item,
-                        calculateStrWidth(item) if adjusted_word_width is None else adjusted_word_width
+                        calculateStrWidth(item)
                     ))
 
+                # Add the Starting size/color/etc. html tag to the wordDataArray
                 wordDataArray.append(msbt.WordData(
                     patternId,
                     msbt.MsgEventID.NONE,
@@ -517,6 +518,10 @@ class MacroAssembler:
                 tag = indicator[len("HtmlTagEnd:"):]
                 tag_name = tag.strip("</>").split()[0]
 
+                size_scale = 1.0
+                if tag_name.lower() == "size" and active_size_scales:
+                    size_scale = active_size_scales.pop()
+
                 # Determine patternId based on tag_name
                 if tag_name.lower() == "color":
                     patternId = msbt.WordDataPatternID.ColorTag
@@ -526,15 +531,21 @@ class MacroAssembler:
                     patternId = msbt.WordDataPatternID.CtrlTag
 
                 if item:
+                    word_width = calculateStrWidth(item)
+                    if tag_name.lower() == "size" and size_scale != 1.0:
+                        word_width = word_width * size_scale
+
+                    # The actual word that is affected by the html tag
                     wordDataArray.append(msbt.WordData(
                         msbt.WordDataPatternID.Str,
                         msbt.MsgEventID.NONE,
                         -1,
                         0,
                         item,
-                        calculateStrWidth(item)
+                        word_width
                     ))
 
+                # Add the Ending size/color/etc. html tag to the wordDataArray
                 wordDataArray.append(msbt.WordData(
                     patternId,
                     msbt.MsgEventID.NONE,
