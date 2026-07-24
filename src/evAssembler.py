@@ -477,6 +477,14 @@ class MacroAssembler:
             if isinstance(indicator, str) and indicator.startswith("HtmlTagStart:"):
                 tag = indicator[len("HtmlTagStart:"):]
                 tag_name = tag.strip("<>").split()[0]
+                adjusted_word_width = None
+                if tag_name.lower() == "size":
+                    # Extract the size value from the tag
+                    size_match = re.search(r'size\s*=\s*"(\d+)"', tag, re.IGNORECASE)
+                    if size_match:
+                        size_value = int(size_match.group(1))
+                        # Adjust the word width based on the size value
+                        adjusted_word_width = calculateStrWidth(item) * (size_value / 100.0)
 
                 # Determine patternId based on tag_name
                 if tag_name.lower().startswith("color"):
@@ -494,7 +502,7 @@ class MacroAssembler:
                         -1,
                         0,
                         item,
-                        calculateStrWidth(item)
+                        calculateStrWidth(item) if adjusted_word_width is None else adjusted_word_width
                     ))
 
                 wordDataArray.append(msbt.WordData(
