@@ -499,7 +499,23 @@ class MacroAssembler:
                         calculateStrWidth(item)
                     ))
             if indicator == Indicator.TagEnd:
-                args = args = item.replace(" ", "").split(",")
+                args = []
+                current = ""
+                in_backticks = False
+
+                for char in item:
+                    if char == "`":
+                        in_backticks = not in_backticks
+                        current += char
+                    elif char == " " and not in_backticks:
+                        continue
+                    elif char == "," and not in_backticks:
+                        args.append(current)
+                        current = ""
+                    else:
+                        current += char
+
+                args.append(current)
 
                 if not args[0].isdigit():
                     # TODO: Raise exception
@@ -524,10 +540,31 @@ class MacroAssembler:
                 else:
                     tagParam = 0
 
+                if len(args) > 4:
+                    forceArticle = int(args[4])
+                else:
+                    forceArticle = 0
+
+                if len(args) > 5 and args[5] != "0":
+                    tagWordArray = [word.strip("`") for word in args[5].split("|")]
+                    print("TagWordArray: {}".format(tagWordArray))
+                else:
+                    tagWordArray = []
+
+                if len(args) > 6:
+                    forceGrmId = int(args[6])
+                else:
+                    forceGrmId = 0
+
                 if groupID == msbt.GroupTagID.Digit:
                     tagPatternID = msbt.TagPatternID.Digit
-                else:
+                elif groupID == msbt.GroupTagID.Name:
                     tagPatternID = msbt.TagPatternID.Word
+                else:
+                    if groupID == msbt.GroupTagID.DE and (tagID == msbt.GermanTagID.ItemAcc or tagID == msbt.GermanTagID.ItemAccClassified):
+                        tagPatternID = msbt.TagPatternID.Word
+                    else:
+                        tagPatternID = msbt.TagPatternID.GrammarWord
 
                 wordDataArray.append(msbt.WordData(
                     msbt.WordDataPatternID.WordTag,
@@ -543,10 +580,10 @@ class MacroAssembler:
                     groupID,
                     tagID,
                     tagPatternID,
-                    0,
+                    forceArticle,
                     tagParam,
-                    [],
-                    msbt.ForceGrmTagID.NONE
+                    tagWordArray,
+                    forceGrmId
                 ))
             if indicator == Indicator.End:
                 wordDataArray.append(msbt.WordData(
