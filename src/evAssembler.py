@@ -416,7 +416,23 @@ class MacroAssembler:
                         calculateStrWidth(item)
                     ))
             if indicator == Indicator.TagEnd:
-                args = args = item.replace(" ", "").split(",")
+                args = []
+                current = ""
+                in_backticks = False
+
+                for char in item:
+                    if char == "`":
+                        in_backticks = not in_backticks
+                        current += char
+                    elif char == " " and not in_backticks:
+                        continue
+                    elif char == "," and not in_backticks:
+                        args.append(current)
+                        current = ""
+                    else:
+                        current += char
+
+                args.append(current)
 
                 if not args[0].isdigit():
                     # TODO: Raise exception
@@ -447,7 +463,8 @@ class MacroAssembler:
                     forceArticle = 0
 
                 if len(args) > 5 and args[5] != "0":
-                    tagWordArray = args[5].split("|")
+                    tagWordArray = [word.strip("`") for word in args[5].split("|")]
+                    print("TagWordArray: {}".format(tagWordArray))
                 else:
                     tagWordArray = []
 
