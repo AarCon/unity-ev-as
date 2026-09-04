@@ -1,0 +1,494 @@
+[
+  {
+    "labelName": "1-msg_c08r0101_sunglasses_01",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "13-msg_c04r0501_shopw1_01",
+    "messageFile": "english_dp_scenario2.json"
+  },
+  {
+    "labelName": "143-msg_r212br0101_woman2_02",
+    "messageFile": "english_dp_scenario2.json"
+  },
+  {
+    "labelName": "143-msg_r212br0101_woman2_07",
+    "messageFile": "english_dp_scenario2.json"
+  },
+  {
+    "labelName": "143-msg_r212br0101_woman2_08",
+    "messageFile": "english_dp_scenario2.json"
+  },
+  {
+    "labelName": "143-msg_r212br0101_woman2_09",
+    "messageFile": "english_dp_scenario2.json"
+  },
+  {
+    "labelName": "143-msg_r212br0101_woman2_10",
+    "messageFile": "english_dp_scenario2.json"
+  },
+  {
+    "labelName": "143-msg_r212br0101_woman2_11",
+    "messageFile": "english_dp_scenario2.json"
+  },
+  {
+    "labelName": "143-msg_r212br0101_woman2_12",
+    "messageFile": "english_dp_scenario2.json"
+  },
+  {
+    "labelName": "143-msg_r212br0101_woman2_13",
+    "messageFile": "english_dp_scenario2.json"
+  },
+  {
+    "labelName": "178-msg_r221r0101_shopwoman02_01",
+    "messageFile": "english_dp_scenario2.json"
+  },
+  {
+    "labelName": "178-msg_r221r0101_shopwoman02_02",
+    "messageFile": "english_dp_scenario2.json"
+  },
+  {
+    "labelName": "178-msg_r221r0101_shopwoman02_03",
+    "messageFile": "english_dp_scenario2.json"
+  },
+  {
+    "labelName": "178-msg_r221r0101_shopwoman02_04",
+    "messageFile": "english_dp_scenario2.json"
+  },
+  {
+    "labelName": "178-msg_r221r0101_shopwoman02_05",
+    "messageFile": "english_dp_scenario2.json"
+  },
+  {
+    "labelName": "178-msg_r221r0101_shopwoman02_06",
+    "messageFile": "english_dp_scenario2.json"
+  },
+  {
+    "labelName": "178-msg_r221r0101_shopwoman02_07",
+    "messageFile": "english_dp_scenario2.json"
+  },
+  {
+    "labelName": "178-msg_r221r0101_shopwoman02_08",
+    "messageFile": "english_dp_scenario2.json"
+  },
+  {
+    "labelName": "28-mes_shop_01_01",
+    "messageFile": "english_dp_scenario1.json"
+  },
+  {
+    "labelName": "28-mes_shop_01_02",
+    "messageFile": "english_dp_scenario1.json"
+  },
+  {
+    "labelName": "28-mes_shop_01_03",
+    "messageFile": "english_dp_scenario1.json"
+  },
+  {
+    "labelName": "28-mes_shop_02_04",
+    "messageFile": "english_dp_scenario1.json"
+  },
+  {
+    "labelName": "28-mes_shop_02_05",
+    "messageFile": "english_dp_scenario1.json"
+  },
+  {
+    "labelName": "28-mes_shop_02_09",
+    "messageFile": "english_dp_scenario1.json"
+  },
+  {
+    "labelName": "28-mes_shop_02_10",
+    "messageFile": "english_dp_scenario1.json"
+  },
+  {
+    "labelName": "28-mes_shop_03_03",
+    "messageFile": "english_dp_scenario1.json"
+  },
+  {
+    "labelName": "28-mes_shop_03_04",
+    "messageFile": "english_dp_scenario1.json"
+  },
+  {
+    "labelName": "28-mes_shop_03_05",
+    "messageFile": "english_dp_scenario1.json"
+  },
+  {
+    "labelName": "34-msg_btwr_score_r02",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "34-msg_btwr_score_r03",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "34-msg_btwr_score_r04",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "34-msg_btwr_score_r05",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "34-msg_btwr_score_r06",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "34-msg_btwr_score_s01",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "34-msg_btwr_score_s03",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "34-msg_btwr_score_s04",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "35-msg_battle_00",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "35-msg_battle_01",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "35-msg_battle_05",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "35-msg_contest_00",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "35-msg_contest_01",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "35-msg_contest_02",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "35-msg_count_00",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "35-msg_count_01",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "35-msg_count_02",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "35-msg_count_03",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "35-msg_count_04",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "35-msg_count_05",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "35-msg_count_06",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "35-msg_delete_05",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "35-msg_delete_06",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "35-msg_guide_01",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "35-msg_guide_02",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "35-msg_guide_06",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "35-msg_guide_07",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "35-msg_guide_08",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "35-msg_guide_09",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "35-msg_guide_10",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "35-msg_guide_11",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "35-msg_guide_12",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "35-msg_guide_13",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "35-msg_option_00",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "35-msg_option_01",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "35-msg_pokemon_00",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "35-msg_pokemon_01",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "35-msg_pokemon_02",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "35-msg_pokemon_03",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "35-msg_ranking_02",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "43-msg_hikikae_01",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "43-msg_hikikae_02",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "43-msg_hikikae_03",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "43-msg_hikikae_04",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "43-msg_hikikae_05",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "43-msg_hikikae_06",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "43-msg_hikikae_07",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "43-msg_hikikae_08",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "43-msg_hikikae_09",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "43-msg_hikikae_10",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "43-msg_hikikae_11",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "7-msg_opening_24",
+    "messageFile": "english_dp_scenario1.json"
+  },
+  {
+    "labelName": "7-msg_opening_25",
+    "messageFile": "english_dp_scenario1.json"
+  },
+  {
+    "labelName": "92-msg_hyouka_doctor_07",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "92-msg_hyouka_doctor_08",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "92-msg_hyouka_s00",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "92-msg_hyouka_s01",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "92-msg_hyouka_s02",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "92-msg_hyouka_s03",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "92-msg_hyouka_s04",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "92-msg_hyouka_s05",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "92-msg_hyouka_s06",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "92-msg_hyouka_s07",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "92-msg_hyouka_s08",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "92-msg_hyouka_z00",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "92-msg_hyouka_z01",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "92-msg_hyouka_z02",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "92-msg_hyouka_z03",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "92-msg_hyouka_z04",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "92-msg_hyouka_z05",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "92-msg_hyouka_z06",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "92-msg_hyouka_z07",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "92-msg_hyouka_z08",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "92-msg_hyouka_z09",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "92-msg_hyouka_z10",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "92-msg_hyouka_z11_1",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "92-msg_hyouka_z11_2",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "92-msg_hyouka_z13",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "92-msg_hyouka_z14",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "92-msg_hyouka_z15",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "92-msg_hyouka_z16",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "92-msg_hyouka_z17",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "92-msg_hyouka_z19",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "92-msg_hyouka_z20_1",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "92-msg_hyouka_z20_2",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "92-msg_hyouka_z20_3",
+    "messageFile": "english_dp_scenario3.json"
+  },
+  {
+    "labelName": "95-mes_accessory_01_01",
+    "messageFile": "english_dp_scenario1.json"
+  },
+  {
+    "labelName": "95-mes_accessory_01_04",
+    "messageFile": "english_dp_scenario1.json"
+  },
+  {
+    "labelName": "95-mes_accessory_01_05",
+    "messageFile": "english_dp_scenario1.json"
+  },
+  {
+    "labelName": "95-mes_accessory_01_06",
+    "messageFile": "english_dp_scenario1.json"
+  },
+  {
+    "labelName": "95-mes_accessory_01_07",
+    "messageFile": "english_dp_scenario1.json"
+  },
+  {
+    "labelName": "95-mes_accessory_01_08",
+    "messageFile": "english_dp_scenario1.json"
+  },
+  {
+    "labelName": "95-mes_accessory_01_09",
+    "messageFile": "english_dp_scenario1.json"
+  },
+  {
+    "labelName": "95-mes_accessory_01_11",
+    "messageFile": "english_dp_scenario1.json"
+  },
+  {
+    "labelName": "95-mes_accessory_03_01",
+    "messageFile": "english_dp_scenario1.json"
+  }
+]

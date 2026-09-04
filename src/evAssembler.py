@@ -2,6 +2,7 @@ from enum import IntEnum, auto
 import struct
 from dataclasses import dataclass
 import sys
+import re
 
 from antlr4 import *
 from UnityPy.streams import EndianBinaryReader, EndianBinaryWriter
@@ -20,13 +21,55 @@ from ev_work import EvWork
 from ev_flag import EvFlag
 from ev_sys_flag import EvSysFlag
 
-MAX_WORK = 500
-MAX_FLAG = 4000
-MAX_SYS_FLAG = 1000
+MAX_WORK = 4999
+MAX_FLAG = 14999
+MAX_SYS_FLAG = 14999
 
 MACRO_NAME_CMD_TABLE = {
-    EvCmdType._POKE_TYPE_NAME : msbt.TagID.PokeType,
-    EvCmdType._NUMBER_NAME : msbt.TagID.Number
+    # EvCmdType._PLAYER_NAME : msbt.NameTagID.Default,
+    # EvCmdType._RIVAL_NAME : msbt.NameTagID.Default,
+    # EvCmdType._SUPPORT_NAME : msbt.NameTagID.Default,
+    # EvCmdType._POKEMON_NAME : msbt.NameTagID.Default,
+    # EvCmdType._ITEM_NAME : msbt.NameTagID.Default,
+    # EvCmdType._POCKET_NAME : msbt.NameTagID.Default,
+    # EvCmdType._ITEM_WAZA_NAME : msbt.NameTagID.Default,
+    # EvCmdType._WAZA_NAME : msbt.NameTagID.Default,
+    # EvCmdType._NUMBER_NAME : msbt.NameTagID.Default,
+    # EvCmdType._NUMBER_NAME_EX : msbt.NameTagID.Default,
+    # EvCmdType._NICK_NAME : msbt.NameTagID.Default,
+    # EvCmdType._POKETCH_NAME : msbt.NameTagID.Default,
+    # EvCmdType._TR_TYPE_NAME : msbt.NameTagID.Default,
+    # EvCmdType._MY_TR_TYPE_NAME : msbt.NameTagID.Default,
+    # EvCmdType._POKEMON_NAME_EXTRA : msbt.NameTagID.Default,
+    EvCmdType._FIRST_POKEMON_NAME : msbt.NameTagID.PokemonName,
+    EvCmdType._RIVAL_POKEMON_NAME : msbt.NameTagID.PokemonName,
+    # EvCmdType._SUPPORT_POKEMON_NAME : msbt.NameTagID.Default,
+    # EvCmdType._NUTS_NAME : msbt.NameTagID.Default,
+    # EvCmdType._SEIKAKU_NAME : msbt.NameTagID.Default,
+    # EvCmdType._GOODS_NAME : msbt.NameTagID.Default,
+    # EvCmdType._TRAP_NAME : msbt.NameTagID.Default,
+    # EvCmdType._TAMA_NAME : msbt.NameTagID.Default,
+    # EvCmdType._ZONE_NAME : msbt.NameTagID.Default,
+    # EvCmdType._UG_SHOP_ITEM_NAME : msbt.NameTagID.Default,
+    # EvCmdType._UG_SHOP_TRAP_NAME : msbt.NameTagID.Default,
+    # EvCmdType._TEMOTI_WAZA_NAME : msbt.NameTagID.Default,
+    # EvCmdType._RIBBON_NAME : msbt.NameTagID.Default,
+    # EvCmdType._NICK_NAME_PC : msbt.NameTagID.Default,
+    # EvCmdType._ACCE_NAME : msbt.NameTagID.Default,
+    # EvCmdType._MONUMENT_NAME : msbt.NameTagID.Default,
+    # EvCmdType._IMC_BG_NAME : msbt.NameTagID.Default,
+    # EvCmdType._SEAL_NAME : msbt.NameTagID.Default,
+    # EvCmdType._GROUP_NAME : msbt.NameTagID.Default,
+    # EvCmdType._GROUP_LEADER_NAME : msbt.NameTagID.Default,
+    # EvCmdType._SPEAKERS_NAME : msbt.NameTagID.Default,
+    # EvCmdType._TEMOTI_BOX_POKEMON_NAME : msbt.NameTagID.Default,
+    # EvCmdType._PARK_ITEM_NAME : msbt.NameTagID.Default,
+    # EvCmdType._UG_ITEM_NAME : msbt.NameTagID.Default,
+    # EvCmdType._CON_CATEGORY_NAME : msbt.NameTagID.Default,
+    # EvCmdType._CON_RANK_NAME : msbt.NameTagID.Default,
+    EvCmdType._POKE_TYPE_NAME : msbt.NameTagID.PokeType,
+    # EvCmdType._POFFIN_NAME : msbt.NameTagID.Default,
+    # EvCmdType._DRESS_NAME : msbt.NameTagID.Default,
 }
 
 @dataclass
@@ -63,7 +106,7 @@ class EvMacro:
         return self.cmdType.isValid()
 
 class Indicator(IntEnum):
-    ScrollPage = auto()
+    ScrollPage = 0
     ScrollLine = auto()
     NewLine = auto()
     TagStart = auto()
@@ -75,94 +118,243 @@ def encode_float(var):
     data = int(struct.unpack('<i', struct.pack('<f', var))[0])
     return data
 
-def calculateStrWidth(inputString):
+def calculateStrWidth(inputString, debug=False, collect_missing=False):
     charDict = {
-        "A" :20.125,
-        "B" :17.3125,
-        "C" :20.25,
-        "D" :22.109375,
-        "E" :15.84375,
-        "F" :16.15625,
-        "G" :23.328125,
-        "H" :22.015625,
-        "I" :8.390625,
-        "J" :12.640625,
-        "K" :19.046875,
-        "L" :14.96875,
-        "M" :25.984375,
-        "N" :21.625,
-        "O" :24.390625,
-        "P" :16.28125,
-        "Q" :24.390625,
-        "R" :17.625,
-        "S" :15.453125,
-        "T" :17.125,
-        "U" :21.34375,
-        "V" :20.0,
-        "W" :28.640625,
-        "X" :20.28125,
-        "Y" :19.328125,
-        "Z" :18.171875,
-        "a" :15.296875,
-        "b" :17.25,
-        "c" :13.953125,
-        "d" :17.28125,
-        "e" :15.96875,
-        "é" :15.96875,
-        "f" :9.765625,
-        "g" :16.1875,
-        "h" :15.578125,
-        "i" :7.609375,
-        "j" :7.328125,
-        "k" :14.8125,
-        "l" :7.78125,
-        "m" :22.71875,
-        "n" :15.578125,
-        "o" :17.15625,
-        "p" :17.25,
-        "q" :17.28125,
-        "r" :9.65625,
-        "s" :11.515625,
-        "t" :10.046875,
-        "u" :15.578125,
-        "v" :14.078125,
-        "w" :19.8125,
-        "x" :14.46875,
-        "y" :14.375,
-        "z" :13.03125,
-        "1" :0,
-        "2" :0,
-        "3" :0,
-        "4" :0,
-        "5" :0,
-        "6" :0,
-        "7" :0,
-        "8" :0,
-        "9" :0,
-        "0" :0,
-        "-" : 11.203125,
-        "!" : 7.265625,
-        "?" : 14.46875,
-        '"' : 13.03125,
-        " " : 8.671875,
-        "," : 8.828125,
-        "." : 7.90625,
-        "'" : 8.828125
+        " ": 8.671875,
+        "\xa0": 8.671875, # Non-breaking space
+        "A": 20.125,
+        "À": 20.125,
+        "Á": 20.125,
+        "Â": 20.125,
+        "Ã": 20.125,
+        "Ä": 20.125,
+        "Å": 20.125,
+        "Æ": 20.125,
+        "B": 17.3125,
+        "C": 20.25,
+        "Ç": 20.25,
+        "D": 22.109375,
+        "E": 15.84375,
+        "È": 15.84375,
+        "É": 15.84375,
+        "Ê": 15.84375,
+        "Ë": 15.84375,
+        "F": 16.15625,
+        "G": 23.328125,
+        "H": 22.015625,
+        "I": 8.390625,
+        "Ì": 8.390625,
+        "Í": 8.390625,
+        "Î": 8.390625,
+        "Ï": 8.390625,
+        "J": 12.640625,
+        "K": 19.046875,
+        "L": 14.96875,
+        "M": 25.984375,
+        "N": 21.625,
+        "Ñ": 21.625,
+        "O": 24.390625,
+        "Ò": 24.390625,
+        "Ó": 24.390625,
+        "Ô": 24.390625,
+        "Õ": 24.390625,
+        "Ö": 24.390625,
+        "Ø": 24.390625,
+        "P": 16.28125,
+        "Q": 24.390625,
+        "R": 17.625,
+        "S": 15.453125,
+        "T": 17.125,
+        "U": 21.34375,
+        "Ù": 21.34375,
+        "Ú": 21.34375,
+        "Û": 21.34375,
+        "Ü": 21.34375,
+        "V": 20.0,
+        "W": 28.640625,
+        "X": 20.28125,
+        "Y": 19.328125,
+        "Ý": 19.328125,
+        "Z": 18.171875,
+        "a": 15.296875,
+        "à": 15.296875,
+        "á": 15.296875,
+        "â": 15.296875,
+        "ã": 15.296875,
+        "ä": 15.296875,
+        "å": 15.296875,
+        "æ": 15.296875,
+        "b": 17.25,
+        "c": 13.953125,
+        "ç": 13.953125,
+        "d": 17.28125,
+        "e": 15.96875,
+        "è": 15.96875,
+        "é": 15.96875,
+        "ê": 15.96875,
+        "ë": 15.96875,
+        "f": 9.765625,
+        "g": 16.1875,
+        "h": 15.578125,
+        "i": 7.609375,
+        "ì": 7.609375,
+        "í": 7.609375,
+        "î": 7.609375,
+        "ï": 7.609375,
+        "j": 7.328125,
+        "k": 14.8125,
+        "l": 7.78125,
+        "m": 22.71875,
+        "n": 15.578125,
+        "ñ": 15.578125,
+        "o": 17.15625,
+        "ò": 17.15625,
+        "ó": 17.15625,
+        "ô": 17.15625,
+        "õ": 17.15625,
+        "ö": 17.15625,
+        "ø": 17.15625,
+        "p": 17.25,
+        "q": 17.28125,
+        "r": 9.65625,
+        "s": 11.515625,
+        "t": 10.046875,
+        "u": 15.578125,
+        "ù": 15.578125,
+        "ú": 15.578125,
+        "û": 15.578125,
+        "ü": 15.578125,
+        "v": 14.078125,
+        "w": 19.8125,
+        "x": 14.46875,
+        "y": 14.375,
+        "ý": 14.375,
+        "ÿ": 14.375,
+        "z": 13.03125,
+        "ß": 16.734375,
+
+        "1": 13.984375,
+        "2": 17.984375,
+        "3": 17.984375,
+        "4": 17.984375,
+        "5": 17.984375,
+        "6": 17.984375,
+        "7": 17.984375,
+        "8": 17.984375,
+        "9": 17.984375,
+        "0": 17.984375,
+
+        "－": 25.593750,
+        "-": 11.203125,
+        "–": 12.796875,
+        "—": 25.59375,
+        "―": 25.593750,
+        "ー": 25.593750,
+        "_": 12.796875,
+
+        "±": 25.593750,
+        "+": 16.0625,
+        "−": 26.59375,
+        "=": 15.906250,
+        "%": 23.078125,
+        "*": 12.765625,
+        "×": 25.59375,
+        "/": 12.796875,
+
+        ".": 7.90625,
+        "·": 7.906250,
+        "•": 10.750000,
+        "●": 25.59375,
+        "!": 7.265625,
+        "¡": 7.265625,
+        "?": 14.46875,
+        "¿": 14.46875,
+
+        "'": 6.4609375,
+        '"': 10.6640625,
+        "“": 13.03125,
+        "”": 13.03125,
+        "„": 13.03125,
+        "«": 15.9375,
+        "»": 15.9375,
+        "‘": 8.828125,
+        "‚": 8.828125,
+        ",": 8.828125,
+        "’": 8.828125,
+
+        "♀": 25.59375,
+        "♂": 25.59375,
+        "(": 11.359375,
+        ")": 11.359375,
+        ":": 10.109375,
+        ";": 10.109375,
+        "：": 25.593750,
+        "&": 19.843750,
+        "ª": 8.953125,
+        "ᵉ": 8.828125,
+        "ō": 17.156250,
+        "Œ": 28.703125,
+        "œ": 27.359375,
+
+        "↑": 25.593750,
+        "→": 25.593750,
+        "←": 25.593750,
+        "↓": 25.593750,
+        "★": 25.59375,
+        "♥": 25.593750,
+        "♪": 25.593750,
+
+        "ヒ": 25.593750,
+        "フ": 25.593750,
+        "ヘ": 25.593750,
+        "ホ": 25.593750,
+        "マ": 25.593750,
+        "ミ": 25.593750,
+        "ム": 25.593750,
+        "メ": 25.593750,
+        "モ": 25.593750,
+        "ヤ": 25.593750,
+        "ユ": 25.593750,
+        "ヨ": 25.593750,
+        "ラ": 25.593750,
+        "リ": 25.593750,
+        "ル": 25.593750,
+        "レ": 25.593750,
+        "ロ": 25.593750,
+        "ワ": 25.593750,
+
+        "\ue104": 32.000000, # The character for this unicode: ✨
+        "\ue300": 21.125000, # Pokedollar symbol
+        "\u202f": 4.421875,  # Another random whitespace??
+        "\u3000": 25.593750, # A random whitespace??
     }
     total = 0.0
+    missing_chars = []
     for char in inputString:
         if char == "'":
             char = "’"
         try:
             total += charDict[char]
         except:
+            if debug:
+                print("Warning: Character '{}' not found in charDict. Using width of space.".format(char), file=sys.stderr)
+            if collect_missing:
+                missing_chars.append(char)
             total += charDict[" "]
+    if collect_missing:
+        return total, missing_chars
     return total
 
 class MacroAssembler:
     def __init__(self, fileName):
         self.fileName = fileName
         self.labelDatas = {}
+        # labelSources maps message label key -> dict with original text and location
+        # e.g. { strVal: { 'text': <text string>, 'file': <file>, 'line': <int>, 'column': <int> } }
+        self.labelSources = {}
+        # duplicateLabels maps message label key -> list of occurrences (including originals and repeats)
+        # each occurrence is a dict like the entries stored in labelSources
+        self.duplicateLabels = {}
     
     def parseText(self, origText):
         origText = origText.replace('\r\n', '\\n')
@@ -171,6 +363,10 @@ class MacroAssembler:
         if origText.endswith('\\r'):
             origText = origText[:-2]
         text = origText
+
+        # Regex for HTML-like tags: <tag ...> or </tag>
+        tag_pattern = re.compile(r'<[^>]+>')
+        # Splitters: escape sequences and curly braces
         splitters = ['\\n', '\\r', '\\f', '{', '}']
         items = {}
         indicators = {}
@@ -178,8 +374,12 @@ class MacroAssembler:
         while True:
             indices = {}
             for splitter in splitters:
-                if splitter in text:
-                    indices[text.index(splitter)] = splitter
+                idx = text.find(splitter)
+                if idx != -1:
+                    indices[idx] = splitter
+            tag_match = tag_pattern.search(text)
+            if tag_match:
+                indices[tag_match.start()] = tag_match.group(0)
             if not indices:
                 break
             i = min(indices.keys())
@@ -195,29 +395,33 @@ class MacroAssembler:
                 indicator = Indicator.TagEnd
             if splitter == '{':
                 indicator = Indicator.TagStart
-            indicators[text.index(splitter)+lastIndex] = indicator
-            items[text.index(splitter)+lastIndex] = text[:text.index(splitter)]
-            lastIndex = text.index(splitter)+lastIndex
-            text = text[text.index(splitter)+len(splitter):]
-        try:
-            max_idx = max(items.keys())
-        except ValueError:
-            max_idx = 0
-        idx = max_idx
-        if items:
-            idx += len(items[idx])
-        items[idx] = text
-        indicators[idx] = Indicator.End
+            if tag_pattern.fullmatch(splitter):
+                # Generic HTML tag indicators
+                if splitter.startswith('</'):
+                    indicator = "HtmlTagEnd:" + splitter
+                else:
+                    indicator = "HtmlTagStart:" + splitter
+            # Store the text before the splitter
+            text_before_splitter = text[:i]
+            items[lastIndex] = text_before_splitter
+            indicators[lastIndex] = indicator
+
+            # Update absolute position and remaining text
+            lastIndex += len(text_before_splitter) + len(splitter)
+            text = text[i + len(splitter) :]
+
+        items[lastIndex] = text
+        indicators[lastIndex] = Indicator.End
         return {
             "items" : items,
             "indicators" : indicators
         }
 
-    def genLabelData(self, labelName, text, tags):
+    def genLabelData(self, labelName, text, tags, control_id: int = 0):
         TAG_COMMANDS = {
             "PLAYER",
             "RIVAL",
-            "SUPPORT"
+            "SUPPORT",
             "RIVAL_POKEMON_NAME",
             "SUPPORT_POKEMON_NAME",
             # TODO: Add support for the following
@@ -236,6 +440,16 @@ class MacroAssembler:
             # IMC_BG_NAME
         }
         styleInfo = msbt.StyleInfo.default()
+
+        if control_id != 0:
+            try:
+                styleInfo.controlID = int(control_id)
+            except Exception:
+                try:
+                    setattr(styleInfo, "controlID", int(control_id))
+                except Exception:
+                    pass
+
         attributeValueArray = msbt.LabelData.defaultAttributeValueArray()
         tagDataArray = []
         wordDataArray = []
@@ -243,6 +457,7 @@ class MacroAssembler:
         textTree = self.parseText(text.data)
         items = textTree["items"]
         indicators = textTree["indicators"]
+        active_size_scales = []
         for pos in items:
             item: str = items[pos]
             indicator = indicators[pos]
@@ -263,7 +478,7 @@ class MacroAssembler:
                     0.0,
                     item,
                     calculateStrWidth(item)
-                ))                
+                ))
             if indicator == Indicator.ScrollPage:
                 wordDataArray.append(msbt.WordData(
                     msbt.WordDataPatternID.Event,
@@ -274,23 +489,83 @@ class MacroAssembler:
                     calculateStrWidth(item)
                 ))
             if indicator == Indicator.TagStart:
-                wordDataArray.append(msbt.WordData(
-                    msbt.WordDataPatternID.Str,
-                    msbt.MsgEventID.NONE,
-                    -1,
-                    0.0,
-                    item,
-                    calculateStrWidth(item)
-                ))
+                if len(item) > 0:
+                    wordDataArray.append(msbt.WordData(
+                        msbt.WordDataPatternID.Str,
+                        msbt.MsgEventID.NONE,
+                        -1,
+                        0.0,
+                        item,
+                        calculateStrWidth(item)
+                    ))
             if indicator == Indicator.TagEnd:
-                if not item.isdigit():
+                args = []
+                current = ""
+                in_backticks = False
+
+                for char in item:
+                    if char == "`":
+                        in_backticks = not in_backticks
+                        current += char
+                    elif char == " " and not in_backticks:
+                        continue
+                    elif char == "," and not in_backticks:
+                        args.append(current)
+                        current = ""
+                    else:
+                        current += char
+
+                args.append(current)
+
+                if not args[0].isdigit():
                     # TODO: Raise exception
                     pass
                 # Just the tag index
-                tagIndex = int(item)
+                tagIndex = int(args[0])
                 # This tag index seems to be the index into the
                 # tagData array whereas the other tagIndex is the 
                 # 
+                if len(args) > 1:
+                    groupID = int(args[1])
+                else:
+                    groupID = msbt.GroupTagID.Name
+
+                if len(args) > 2:
+                    tagID = int(args[2])
+                else:
+                    tagID = msbt.NameTagID.Default
+
+                if len(args) > 3:
+                    tagParam = int(args[3])
+                else:
+                    tagParam = 0
+
+                if len(args) > 4:
+                    forceArticle = int(args[4])
+                else:
+                    forceArticle = 0
+
+                if len(args) > 5 and args[5] != "0":
+                    tagWordArray = [word.strip("`") for word in args[5].split("|")]
+                    print("TagWordArray: {}".format(tagWordArray))
+                else:
+                    tagWordArray = []
+
+                if len(args) > 6:
+                    forceGrmId = int(args[6])
+                else:
+                    forceGrmId = 0
+
+                if groupID == msbt.GroupTagID.Digit:
+                    tagPatternID = msbt.TagPatternID.Digit
+                elif groupID == msbt.GroupTagID.Name:
+                    tagPatternID = msbt.TagPatternID.Word
+                else:
+                    if groupID == msbt.GroupTagID.DE and (tagID == msbt.GermanTagID.ItemAcc or tagID == msbt.GermanTagID.ItemAccClassified):
+                        tagPatternID = msbt.TagPatternID.Word
+                    else:
+                        tagPatternID = msbt.TagPatternID.GrammarWord
+
                 wordDataArray.append(msbt.WordData(
                     msbt.WordDataPatternID.WordTag,
                     msbt.MsgEventID.NONE,
@@ -299,18 +574,16 @@ class MacroAssembler:
                     "",
                     -1.0
                 ))
-                tagID = msbt.TagID.Default
-                if tagIndex in tags:
-                    tagID = tags[tagIndex]
+
                 tagDataArray.append(msbt.TagData(
                     tagIndex,
-                    msbt.GroupTagID.Name,
+                    groupID,
                     tagID,
-                    msbt.TagPatternID.Word,
-                    0,
-                    0,
-                    [],
-                    msbt.ForceGrmID.NONE
+                    tagPatternID,
+                    forceArticle,
+                    tagParam,
+                    tagWordArray,
+                    forceGrmId
                 ))
             if indicator == Indicator.End:
                 wordDataArray.append(msbt.WordData(
@@ -320,6 +593,85 @@ class MacroAssembler:
                     0.0,
                     item,
                     calculateStrWidth(item)
+                ))
+            if isinstance(indicator, str) and indicator.startswith("HtmlTagStart:"):
+                tag = indicator[len("HtmlTagStart:"):]
+                tag_name = tag.strip("<>").split()[0]
+                if tag_name.lower().startswith("size"):
+                    size_match = re.search(r'size\s*=\s*(\d+)', tag, re.IGNORECASE)
+                    if size_match:
+                        size_value = int(size_match.group(1))
+                        active_size_scales.append(size_value / 100.0)
+                    else:
+                        active_size_scales.append(1.0)
+
+                # Determine patternId based on tag_name
+                if tag_name.lower().startswith("color"):
+                    patternId = msbt.WordDataPatternID.ColorTag
+                elif tag_name.lower().startswith("size"):
+                    patternId = msbt.WordDataPatternID.SizeTag
+                else:
+                    patternId = msbt.WordDataPatternID.CtrlTag
+
+                # Flush preceding text
+                if item:
+                    wordDataArray.append(msbt.WordData(
+                        msbt.WordDataPatternID.Str,
+                        msbt.MsgEventID.NONE,
+                        -1,
+                        0,
+                        item,
+                        calculateStrWidth(item)
+                    ))
+
+                # Add the Starting size/color/etc. html tag to the wordDataArray
+                wordDataArray.append(msbt.WordData(
+                    patternId,
+                    msbt.MsgEventID.NONE,
+                    -1,
+                    0,
+                    tag,
+                    -1.0
+                ))
+            if isinstance(indicator, str) and indicator.startswith("HtmlTagEnd:"):
+                tag = indicator[len("HtmlTagEnd:"):]
+                tag_name = tag.strip("</>").split()[0]
+
+                size_scale = 1.0
+                if tag_name.lower() == "size" and active_size_scales:
+                    size_scale = active_size_scales.pop()
+
+                # Determine patternId based on tag_name
+                if tag_name.lower() == "color":
+                    patternId = msbt.WordDataPatternID.ColorTag
+                elif tag_name.lower() == "size":
+                    patternId = msbt.WordDataPatternID.SizeTag
+                else:
+                    patternId = msbt.WordDataPatternID.CtrlTag
+
+                if item:
+                    word_width = calculateStrWidth(item)
+                    if tag_name.lower() == "size" and size_scale != 1.0:
+                        word_width = word_width * size_scale
+
+                    # The actual word that is affected by the html tag
+                    wordDataArray.append(msbt.WordData(
+                        msbt.WordDataPatternID.Str,
+                        msbt.MsgEventID.NONE,
+                        -1,
+                        0,
+                        item,
+                        word_width
+                    ))
+
+                # Add the Ending size/color/etc. html tag to the wordDataArray
+                wordDataArray.append(msbt.WordData(
+                    patternId,
+                    msbt.MsgEventID.NONE,
+                    -1,
+                    0,
+                    tag,
+                    -1.0
                 ))
 
         return msbt.LabelData(
@@ -337,41 +689,156 @@ class MacroAssembler:
         try:
             msgFile: EvArg = macro.args[0]
             if msgFile.argType != EvArgType.MacroString:
-                raise RuntimeError("Invalid parameter {} passed to EvMacro: {} at {}:{}:{}", msgFile.data, macro, self.fileName, msgFile.line, msgFile.column)
+                raise RuntimeError(
+                    "Invalid parameter {} passed to EvMacro: {} at {}:{}:{}",
+                    msgFile.data,
+                    macro,
+                    self.fileName,
+                    msgFile.line,
+                    msgFile.column,
+                )
         except IndexError:
-            raise RuntimeError("EvMacro: {} is missing argument msgFile at {}:{}:{}", macro, self.fileName, msgFile.line, msgFile.column)
-        
+            raise RuntimeError(
+                "EvMacro: {} is missing argument msgFile at {}:{}:{}",
+                macro,
+                self.fileName,
+                msgFile.line,
+                msgFile.column,
+            )
+
         # TODO: Add validate the actual contents of the label
         # to ensure it's proper utf-8 string.
         try:
             label: EvArg = macro.args[1]
             if label.argType != EvArgType.MacroString:
-                raise RuntimeError("Invalid parameter {} passed to EvMacro: {} at {}:{}:{}", label.data, macro, self.fileName, label.line, msgFile.column)
+                raise RuntimeError(
+                    "Invalid parameter {} passed to EvMacro: {} at {}:{}:{}",
+                    label.data,
+                    macro,
+                    self.fileName,
+                    label.line,
+                    msgFile.column,
+                )
         except IndexError:
-            raise RuntimeError("EvMacro: {} is missing argument label at {}:{}:{}", macro, self.fileName, label.line, label.column)
+            raise RuntimeError(
+                "EvMacro: {} is missing argument label at {}:{}:{}",
+                macro,
+                self.fileName,
+                label.line,
+                label.column,
+            )
         
         try:
             text: EvArg = macro.args[2]
             if text.argType != EvArgType.MacroString:
-                raise RuntimeError("Invalid parameter {} passed to EvMacro: {} at {}:{}:{}", text.data, macro, self.fileName, text.line, msgFile.column)
+                raise RuntimeError(
+                    "Invalid parameter {} passed to EvMacro: {} at {}:{}:{}",
+                    text.data,
+                    macro,
+                    self.fileName,
+                    text.line,
+                    msgFile.column,
+                )
         except IndexError:
-            raise RuntimeError("EvMacro: {} is missing argument text at {}:{}:{}", macro, self.fileName, text.line, text.column)
+            raise RuntimeError(
+                "EvMacro: {} is missing argument text at {}:{}:{}",
+                macro,
+                self.fileName,
+                text.line,
+                text.column,
+            )
         
         strVal = "{}%{}".format(msgFile.data, label.data)
         # if strVal in self.msg_keys:
         #    raise RuntimeError("EvMacro: {}. Label `{}` is already used at {}:{}:{}".format(macro.cmdType.name, strVal, self.fileName, text.line, text.column))
         macroCommands = []
-        labelData = self.genLabelData(label, text, tags)
+
+        # Determine if a trailing numeric control_id was provided as the last macro arg.
+        # We expect control_id to be passed as a numeric literal (parsed as Number -> EvArgType.Value)
+        control_id = 0
+        extra_args_for_cmd = list(macro.args[3:])
+        # Only treat a trailing numeric as control_id for the talk macros.
+        if macro.cmdType in (EvMacroType._MACRO_TALK_KEYWAIT, EvMacroType._MACRO_TALKMSG, EvMacroType._MACRO_EASY_OBJ_MSG):
+            if len(extra_args_for_cmd) > 1:
+                last = extra_args_for_cmd[-1]
+                if last.argType == EvArgType.Value:
+                    # decode float-bit-encoded int back to numeric value
+                    try:
+                        control_val = struct.unpack('<f', struct.pack('<i', int(last.data)))[0]
+                        control_id = int(control_val)
+                        # remove control arg from the args that will be forwarded to the EvCmd
+                        extra_args_for_cmd = extra_args_for_cmd[:-1]
+                    except Exception:
+                        # leave control_id as 0 and forward args unchanged on failure
+                        control_id = 0
+
+        labelData = self.genLabelData(label, text, tags, control_id)
+
+        # If this label has been defined before, record the duplicate and
+        # raise an error if the text differs from the original definition.
+        if strVal in self.labelDatas:
+            prev = self.labelSources.get(strVal)
+            current_occ = {
+                'text': text.data,
+                'file': self.fileName,
+                'line': macro.line,
+                'column': macro.column,
+            }
+            # initialize duplicates list with previous occurrence if first duplicate
+            if strVal not in self.duplicateLabels:
+                if prev:
+                    self.duplicateLabels[strVal] = [prev, current_occ]
+                else:
+                    self.duplicateLabels[strVal] = [current_occ]
+            else:
+                self.duplicateLabels[strVal].append(current_occ)
+
+            # If the text differs from the original definition, raise an error
+            if prev and prev.get('text') != text.data:
+                # Build left prefixes for both occurrences so the quoted
+                # message text can be padded to start in the same column.
+                left1 = "  {file}:{line}:{col}:".format(
+                    file=prev.get('file', '<unknown>'),
+                    line=prev.get('line', 0),
+                    col=prev.get('column', 0)
+                )
+                left2 = "  {file}:{line}:{col}:".format(
+                    file=self.fileName,
+                    line=macro.line,
+                    col=macro.column
+                )
+                max_left = max(len(left1), len(left2))
+                # Add one extra space after the longest prefix before the quote
+                pad1 = ' ' * (max_left - len(left1) + 1)
+                pad2 = ' ' * (max_left - len(left2) + 1)
+                line1 = left1 + pad1 + "'" + prev.get('text', '') + "'"
+                line2 = left2 + pad2 + "'" + text.data + "'"
+                raise RuntimeError(
+                    "Conflicting definitions for message label '{0}'\n{1}\n{2}".format(
+                        strVal,
+                        line1,
+                        line2,
+                    )
+                )
 
         if strVal not in strTbl:
             strTbl.append(strVal)
         # self.msg_keys.append(strVal)
         self.labelDatas[strVal] = labelData
+        # record the source text/location for this message label (first seen)
+        if strVal not in self.labelSources:
+            self.labelSources[strVal] = {
+                'text': text.data,
+                'file': self.fileName,
+                'line': macro.line,
+                'column': macro.column,
+            }
         
         # Create the main command and add it to the commands list
         argVal = strTbl.index(strVal)
         evCmdArgs = [EvArg(EvArgType.String, argVal, msgFile.line, msgFile.column)]
-        evCmdArgs.extend(macro.args[3:])
+        # forward any extra args (excluding control_id if it was consumed)
+        evCmdArgs.extend(extra_args_for_cmd)
         macroCommands.append(EvCmd(cmdType, evCmdArgs, macro.line, macro.column, self.fileName))
 
         commands.extend(macroCommands)
@@ -379,7 +846,11 @@ class MacroAssembler:
 
     def process(self, macro, commands, strTbl, tags):
         if macro.cmdType == EvMacroType.Invalid:
-            raise RuntimeError("Invalid EvCmd or EvMacro: {} at {}:{}:{}".format(macro, self.fileName, macro.line, macro.column))
+            raise RuntimeError(
+                "Invalid EvCmd or EvMacro: {} at {}:{}:{}".format(
+                    macro, self.fileName, macro.line, macro.column
+                )
+            )
         textMacroMap = {
             EvMacroType._MACRO_TALKMSG : EvCmdType._TALKMSG,
             EvMacroType._MACRO_TALK_KEYWAIT : EvCmdType._TALK_KEYWAIT,
@@ -391,7 +862,11 @@ class MacroAssembler:
             evCmdType = textMacroMap[macro.cmdType]
             return self.processTextMacro(evCmdType, macro, commands, strTbl, tags)
 
-        raise RuntimeError("Invalid EvMacro: {} at {}:{}:{}".format(macro, self.fileName, macro.line, macro.column))
+        raise RuntimeError(
+            "Invalid EvMacro: {} at {}:{}:{}".format(
+                macro, self.fileName, macro.line, macro.column
+            )
+        )
 
 class evAssembler(evListener):
     def __init__(self, fileName, commands=None, flags=None, works=None, sysflags=None):
@@ -455,7 +930,11 @@ class evAssembler(evListener):
             if name in self.commands:
                 evCmdType = EvCmdTypeWrapper(name, self.commands[name])
             else:
-                raise RuntimeError("Invalid EvCmd or EvMacro: {} at {}:{}:{}".format(name, self.fileName, ctx.start.line, ctx.start.column))
+                raise RuntimeError(
+                    "Invalid EvCmd or EvMacro: {} at {}:{}:{}".format(
+                        name, self.fileName, ctx.start.line, ctx.start.column
+                    )
+                )
         else:
             evCmdType = getattr(EvCmdType, name)
         args = []
@@ -473,19 +952,46 @@ class evAssembler(evListener):
             key = str(work.getChild(1)).upper()
             value = int(str(number.getChild(0)))
             if value > MAX_WORK:
-                raise RuntimeError("Invalid work definition: @{}. {} greater than max work value {} at {}:{}:{}".format(key, value, MAX_WORK, self.fileName, ctx.start.line, ctx.start.column))
+                raise RuntimeError(
+                    "Invalid work definition: @{}. {} greater than max work value {} at {}:{}:{}".format(
+                        key,
+                        value,
+                        MAX_WORK,
+                        self.fileName,
+                        ctx.start.line,
+                        ctx.start.column,
+                    )
+                )
             self.works[key] = value
         if flag is not None:
             key = str(flag.getChild(1)).upper()
             value = int(str(number.getChild(0)))
             if value > MAX_FLAG:
-                raise RuntimeError("Invalid flag definition: #{}. {} greater than max flag value {} at {}:{}:{}".format(key, value, MAX_FLAG, self.fileName, ctx.start.line, ctx.start.column))
+                raise RuntimeError(
+                    "Invalid flag definition: #{}. {} greater than max flag value {} at {}:{}:{}".format(
+                        key,
+                        value,
+                        MAX_FLAG,
+                        self.fileName,
+                        ctx.start.line,
+                        ctx.start.column,
+                    )
+                )
             self.flags[key] = value
         if sysflag is not None:
             key = str(sysflag.getChild(1)).upper()
             value = int(str(number.getChild(0)))
             if value > MAX_SYS_FLAG:
-                raise RuntimeError("Invalid SysFlag definition: ${}. {} greater than max sysflag value {} at {}:{}:{}".format(key, value, MAX_SYS_FLAG, self.fileName, ctx.start.line, ctx.start.column))
+                raise RuntimeError(
+                    "Invalid SysFlag definition: ${}. {} greater than max sysflag value {} at {}:{}:{}".format(
+                        key,
+                        value,
+                        MAX_SYS_FLAG,
+                        self.fileName,
+                        ctx.start.line,
+                        ctx.start.column,
+                    )
+                )
             self.sysflags[key] = value
         self.skipEntry = True
 
@@ -526,7 +1032,11 @@ class evAssembler(evListener):
             elif argVal in self.works:
                 argVal = self.works[argVal]
             else:
-                raise RuntimeError("Unknown work: @{}. Cannot convert to number {}:{}:{}".format(argVal, self.fileName, ctx.start.line, ctx.start.column))
+                raise RuntimeError(
+                    "Unknown work: @{}. Cannot convert to number {}:{}:{}".format(
+                        argVal, self.fileName, ctx.start.line, ctx.start.column
+                    )
+                )
 
         if self.macro.isValid():
             self.macro.args.append(
@@ -538,7 +1048,11 @@ class evAssembler(evListener):
             )
 
         if argVal > MAX_WORK:
-            print("[Warning] line {}:{}:{} Invalid work: @{}".format(self.fileName, ctx.start.line, ctx.start.column, argVal))
+            print(
+                "[Warning] line {}:{}:{} Invalid work: @{}".format(
+                    self.fileName, ctx.start.line, ctx.start.column, argVal
+                )
+            )
 
     def enterFlag(self, ctx: evParser.FlagContext):
         if self.skipEntry:
@@ -554,7 +1068,11 @@ class evAssembler(evListener):
             elif argVal in self.flags:
                 argVal = self.flags[argVal]
             else:
-                raise RuntimeError("Unknown Flag: #{}. Cannot convert to number {}:{}:{}".format(argVal, self.fileName, ctx.start.line, ctx.start.column))
+                raise RuntimeError(
+                    "Unknown Flag: #{}. Cannot convert to number {}:{}:{}".format(
+                        argVal, self.fileName, ctx.start.line, ctx.start.column
+                    )
+                )
 
         if self.macro.isValid():
             self.macro.args.append(
@@ -564,9 +1082,13 @@ class evAssembler(evListener):
             self.scripts[self.currentLabel][self.currCmdIdx].args.append(
                 EvArg(EvArgType.Flag, argVal, ctx.start.line, ctx.start.column)
             )
-    
+
         if argVal > MAX_FLAG:
-            print("[Warning] line {}:{}:{} Invalid Flag: #{}".format(self.fileName, ctx.start.line, ctx.start.column, argVal))
+            print(
+                "[Warning] line {}:{}:{} Invalid Flag: #{}".format(
+                    self.fileName, ctx.start.line, ctx.start.column, argVal
+                )
+            )
 
     def enterSysFlag(self, ctx: evParser.SysFlagContext):
         if self.skipEntry:
@@ -582,7 +1104,11 @@ class evAssembler(evListener):
             elif argVal in self.sysflags:
                 argVal = self.sysflags[argVal]
             else:
-                raise RuntimeError("Unknown SysFlag: ${}. Cannot convert to number {}:{}".format(argVal, ctx.start.line, ctx.start.column))
+                raise RuntimeError(
+                    "Unknown SysFlag: ${}. Cannot convert to number {}:{}".format(
+                        argVal, ctx.start.line, ctx.start.column
+                    )
+                )
 
         if self.macro.isValid():
             self.macro.args.append(
@@ -592,7 +1118,7 @@ class evAssembler(evListener):
             self.scripts[self.currentLabel][self.currCmdIdx].args.append(
                 EvArg(EvArgType.SysFlag, argVal, ctx.start.line, ctx.start.column)
             )
-    
+
     def enterString_(self, ctx: evParser.String_Context):
         strVal = str(ctx.getChild(0))[1:-1] # Trim off apostrophes
         if self.macro.isValid():
@@ -605,4 +1131,4 @@ class evAssembler(evListener):
             argVal = self.strTbl.index(strVal)
             self.scripts[self.currentLabel][self.currCmdIdx].args.append(
                 EvArg(EvArgType.String, argVal, ctx.start.line, ctx.start.column)
-            )    
+            )

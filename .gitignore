@@ -26,6 +26,7 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+.vscode/*
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -135,8 +136,15 @@ dmypy.json
 
 # Extra Scripts
 *.ev
+bin/*
+Dpr/*
 
 # cx_freeze
 build*
 
 test
+
+# Unity Assets
+Assets/*
+*.meta
+AssetFolder/*

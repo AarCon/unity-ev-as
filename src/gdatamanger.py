@@ -1,6 +1,8 @@
 import json
+import os
 
-DATA_FILES =  ['dp_scenario1',
+DATA_FILES =  [
+    'dp_scenario1',
     'dp_scenario2',
     'dp_scenario3',
     'dp_options',
@@ -21,9 +23,74 @@ DATA_FILES =  ['dp_scenario1',
     'ss_btl_tower_menu_ui_text',
 ]
 
+NEW_DATA_FILES = [
+    "battle_room",
+    "bg_attr",
+    "common_scr",
+    "connect",
+    "con_reception",
+    "debug_scr",
+    "door",
+    "dummy",
+    "dummy_scr",
+    "fld_item",
+    "game_clear",
+    "global_defines",
+    "group",
+    "haitatu",
+    "hide_item",
+    "hiden",
+    "hyouka_scr",
+    "init_scr",
+    "kinomi",
+    "pair_scr",
+    "pc_ug",
+    "perap",
+    "pokesearcher",
+    "poruto_scr",
+    "safari",
+    "saisen",
+    "scr_seq_def",
+    "sodateya",
+    "support",
+    "trainer",
+    "tutor",
+    "tv",
+    "tv_interview",
+]
+
+# append new data files to DATA_FILES
+for new_file in NEW_DATA_FILES:
+    DATA_FILES.append(f"dialogue_{new_file}")
+
+_THIS_DIR = os.path.dirname(__file__)
+_ZONE_JSON = os.path.join(_THIS_DIR, "zone_codes.json")
+try:
+    with open(_ZONE_JSON, "r", encoding="utf-8") as fh:
+        _zone_list = json.load(fh)
+except Exception:
+    _zone_list = []
+
+# append zone codes (lowercased) to DATA_FILES, avoid duplicates and empty entries
+for z in _zone_list:
+    if not z:
+        continue
+    zname = str(z).strip().lower()
+    if zname and zname not in DATA_FILES:
+        DATA_FILES.append(f"dialogue_{zname}")
+
 class GDataManager:
     SCENARIO_MSGS = None
     DISABLED_MSGS = False
+    CURRENT_LANGUAGE = "english"  # Can now be changed through an argument in the command
+
+    @classmethod
+    def setLanguage(cls, language):
+        """Set the current language for message loading"""
+        cls.CURRENT_LANGUAGE = language
+        # Need to clear cache when switching languages or it will get the wrong files
+        cls.SCENARIO_MSGS = None
+        cls.DISABLED_MSGS = False
 
     @classmethod
     def getMoveById(cls, moveId):
@@ -39,7 +106,8 @@ class GDataManager:
 
             try:
                 for dateFile in DATA_FILES:
-                    ifpath = "AssetFolder/english_Export/english_{}.json".format(dateFile)
+                    # Use the current language instead of hardcoded english
+                    ifpath = f"AssetFolder/{cls.CURRENT_LANGUAGE}_Export/{cls.CURRENT_LANGUAGE}_{dateFile}.json"
                     array = []
                     with open(ifpath, "r", encoding='utf-8') as ifobj:
                         data = json.load(ifobj)
@@ -49,7 +117,7 @@ class GDataManager:
                     scenario_msgs[dateFile] = array
             except FileNotFoundError as exc:
                 cls.DISABLED_MSGS = True
-                print("Warning: english files not found. Message validation will not be enabled: {}".format(exc))
+                print(f"Warning: {cls.CURRENT_LANGUAGE} files not found. Message validation will not be enabled: {exc}")
                 return None
             cls.SCENARIO_MSGS = scenario_msgs
         return cls.SCENARIO_MSGS    

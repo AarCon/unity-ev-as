@@ -1,3 +1,4 @@
+import sys
 from evAssembler import EvCmd, evAssembler
 from ev_argtype import EvArgType
 from ev_cmd import EvCmdType
@@ -148,3 +149,6 @@ class Validator:
                 valid_func(cmd, strList, scripts)
             except RuntimeError as exc:
                 print(exc)
+            except IndexError as exc:
+                print(exc, cmd)
+                sys.exit()

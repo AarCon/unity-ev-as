@@ -1,5 +1,4 @@
 from enum import IntEnum, auto
-
 class EvArgType(IntEnum):
     CmdType = 0
     Value = 1
