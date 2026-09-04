@@ -178,4 +178,9 @@ def main():
     parse_ev_scripts(vargs.ifpath, vargs.ofdir, vargs.mode)
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+        input("Press Enter to Exit...")
+    except Exception as exc:
+        print(exc)
+        input("Press Enter to Exit...")
