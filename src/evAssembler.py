@@ -118,8 +118,10 @@ def encode_float(var):
     data = int(struct.unpack('<i', struct.pack('<f', var))[0])
     return data
 
-def calculateStrWidth(inputString):
+def calculateStrWidth(inputString, debug=False, collect_missing=False):
     charDict = {
+        " ": 8.671875,
+        "\xa0": 8.671875, # Non-breaking space
         "A": 20.125,
         "À": 20.125,
         "Á": 20.125,
@@ -229,38 +231,118 @@ def calculateStrWidth(inputString):
         "ý": 14.375,
         "ÿ": 14.375,
         "z": 13.03125,
-        "ß": 8.0625,
-        "1": 0,
-        "2": 0,
-        "3": 0,
-        "4": 0,
-        "5": 0,
-        "6": 0,
-        "7": 0,
-        "8": 0,
-        "9": 0,
-        "0": 0,
+        "ß": 16.734375,
+
+        "1": 13.984375,
+        "2": 17.984375,
+        "3": 17.984375,
+        "4": 17.984375,
+        "5": 17.984375,
+        "6": 17.984375,
+        "7": 17.984375,
+        "8": 17.984375,
+        "9": 17.984375,
+        "0": 17.984375,
+
+        "－": 25.593750,
         "-": 11.203125,
+        "–": 12.796875,
+        "—": 25.59375,
+        "―": 25.593750,
+        "ー": 25.593750,
+        "_": 12.796875,
+
+        "±": 25.593750,
+        "+": 16.0625,
+        "−": 26.59375,
+        "=": 15.906250,
+        "%": 23.078125,
+        "*": 12.765625,
+        "×": 25.59375,
+        "/": 12.796875,
+
+        ".": 7.90625,
+        "·": 7.906250,
+        "•": 10.750000,
+        "●": 25.59375,
         "!": 7.265625,
+        "¡": 7.265625,
         "?": 14.46875,
-        '"': 13.03125,
+        "¿": 14.46875,
+
+        "'": 6.4609375,
+        '"': 10.6640625,
         "“": 13.03125,
         "”": 13.03125,
-        " ": 8.671875,
+        "„": 13.03125,
+        "«": 15.9375,
+        "»": 15.9375,
+        "‘": 8.828125,
+        "‚": 8.828125,
         ",": 8.828125,
-        ".": 7.90625,
-        "'": 8.828125,
         "’": 8.828125,
-        "●": 25.59375
+
+        "♀": 25.59375,
+        "♂": 25.59375,
+        "(": 11.359375,
+        ")": 11.359375,
+        ":": 10.109375,
+        ";": 10.109375,
+        "：": 25.593750,
+        "&": 19.843750,
+        "ª": 8.953125,
+        "ᵉ": 8.828125,
+        "ō": 17.156250,
+        "Œ": 28.703125,
+        "œ": 27.359375,
+
+        "↑": 25.593750,
+        "→": 25.593750,
+        "←": 25.593750,
+        "↓": 25.593750,
+        "★": 25.59375,
+        "♥": 25.593750,
+        "♪": 25.593750,
+
+        "ヒ": 25.593750,
+        "フ": 25.593750,
+        "ヘ": 25.593750,
+        "ホ": 25.593750,
+        "マ": 25.593750,
+        "ミ": 25.593750,
+        "ム": 25.593750,
+        "メ": 25.593750,
+        "モ": 25.593750,
+        "ヤ": 25.593750,
+        "ユ": 25.593750,
+        "ヨ": 25.593750,
+        "ラ": 25.593750,
+        "リ": 25.593750,
+        "ル": 25.593750,
+        "レ": 25.593750,
+        "ロ": 25.593750,
+        "ワ": 25.593750,
+
+        "\ue104": 32.000000, # The character for this unicode: ✨
+        "\ue300": 21.125000, # Pokedollar symbol
+        "\u202f": 4.421875,  # Another random whitespace??
+        "\u3000": 25.593750, # A random whitespace??
     }
     total = 0.0
+    missing_chars = []
     for char in inputString:
         if char == "'":
             char = "’"
         try:
             total += charDict[char]
         except:
+            if debug:
+                print("Warning: Character '{}' not found in charDict. Using width of space.".format(char), file=sys.stderr)
+            if collect_missing:
+                missing_chars.append(char)
             total += charDict[" "]
+    if collect_missing:
+        return total, missing_chars
     return total
 
 class MacroAssembler:
@@ -375,6 +457,7 @@ class MacroAssembler:
         textTree = self.parseText(text.data)
         items = textTree["items"]
         indicators = textTree["indicators"]
+        active_size_scales = []
         for pos in items:
             item: str = items[pos]
             indicator = indicators[pos]
@@ -416,7 +499,23 @@ class MacroAssembler:
                         calculateStrWidth(item)
                     ))
             if indicator == Indicator.TagEnd:
-                args = args = item.replace(" ", "").split(",")
+                args = []
+                current = ""
+                in_backticks = False
+
+                for char in item:
+                    if char == "`":
+                        in_backticks = not in_backticks
+                        current += char
+                    elif char == " " and not in_backticks:
+                        continue
+                    elif char == "," and not in_backticks:
+                        args.append(current)
+                        current = ""
+                    else:
+                        current += char
+
+                args.append(current)
 
                 if not args[0].isdigit():
                     # TODO: Raise exception
@@ -441,10 +540,31 @@ class MacroAssembler:
                 else:
                     tagParam = 0
 
+                if len(args) > 4:
+                    forceArticle = int(args[4])
+                else:
+                    forceArticle = 0
+
+                if len(args) > 5 and args[5] != "0":
+                    tagWordArray = [word.strip("`") for word in args[5].split("|")]
+                    print("TagWordArray: {}".format(tagWordArray))
+                else:
+                    tagWordArray = []
+
+                if len(args) > 6:
+                    forceGrmId = int(args[6])
+                else:
+                    forceGrmId = 0
+
                 if groupID == msbt.GroupTagID.Digit:
                     tagPatternID = msbt.TagPatternID.Digit
-                else:
+                elif groupID == msbt.GroupTagID.Name:
                     tagPatternID = msbt.TagPatternID.Word
+                else:
+                    if groupID == msbt.GroupTagID.DE and (tagID == msbt.GermanTagID.ItemAcc or tagID == msbt.GermanTagID.ItemAccClassified):
+                        tagPatternID = msbt.TagPatternID.Word
+                    else:
+                        tagPatternID = msbt.TagPatternID.GrammarWord
 
                 wordDataArray.append(msbt.WordData(
                     msbt.WordDataPatternID.WordTag,
@@ -460,10 +580,10 @@ class MacroAssembler:
                     groupID,
                     tagID,
                     tagPatternID,
-                    0,
+                    forceArticle,
                     tagParam,
-                    [],
-                    msbt.ForceGrmTagID.NONE
+                    tagWordArray,
+                    forceGrmId
                 ))
             if indicator == Indicator.End:
                 wordDataArray.append(msbt.WordData(
@@ -477,6 +597,13 @@ class MacroAssembler:
             if isinstance(indicator, str) and indicator.startswith("HtmlTagStart:"):
                 tag = indicator[len("HtmlTagStart:"):]
                 tag_name = tag.strip("<>").split()[0]
+                if tag_name.lower().startswith("size"):
+                    size_match = re.search(r'size\s*=\s*(\d+)', tag, re.IGNORECASE)
+                    if size_match:
+                        size_value = int(size_match.group(1))
+                        active_size_scales.append(size_value / 100.0)
+                    else:
+                        active_size_scales.append(1.0)
 
                 # Determine patternId based on tag_name
                 if tag_name.lower().startswith("color"):
@@ -497,6 +624,7 @@ class MacroAssembler:
                         calculateStrWidth(item)
                     ))
 
+                # Add the Starting size/color/etc. html tag to the wordDataArray
                 wordDataArray.append(msbt.WordData(
                     patternId,
                     msbt.MsgEventID.NONE,
@@ -509,6 +637,10 @@ class MacroAssembler:
                 tag = indicator[len("HtmlTagEnd:"):]
                 tag_name = tag.strip("</>").split()[0]
 
+                size_scale = 1.0
+                if tag_name.lower() == "size" and active_size_scales:
+                    size_scale = active_size_scales.pop()
+
                 # Determine patternId based on tag_name
                 if tag_name.lower() == "color":
                     patternId = msbt.WordDataPatternID.ColorTag
@@ -518,15 +650,21 @@ class MacroAssembler:
                     patternId = msbt.WordDataPatternID.CtrlTag
 
                 if item:
+                    word_width = calculateStrWidth(item)
+                    if tag_name.lower() == "size" and size_scale != 1.0:
+                        word_width = word_width * size_scale
+
+                    # The actual word that is affected by the html tag
                     wordDataArray.append(msbt.WordData(
                         msbt.WordDataPatternID.Str,
                         msbt.MsgEventID.NONE,
                         -1,
                         0,
                         item,
-                        calculateStrWidth(item)
+                        word_width
                     ))
 
+                # Add the Ending size/color/etc. html tag to the wordDataArray
                 wordDataArray.append(msbt.WordData(
                     patternId,
                     msbt.MsgEventID.NONE,
